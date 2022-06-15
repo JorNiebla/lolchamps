@@ -13,7 +13,7 @@ load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
 users = {}
-lanes = {'all': 8, 'top': 9, 'jg': 10, 'jung': 10, 'jng': 10,'jungle': 10, 'mid': 11, 'adc': 12, 'bot': 12, 'supp': 13, 'sup': 13}
+lanes = {'all': 8, 'top': 9, 'jg': 10, 'jung': 10, 'jng': 10,'jungle': 10, 'jungler': 10, 'mid': 11, 'adc': 12, 'bot': 12, 'supp': 13, 'sup': 13}
 
 def cords_to_cellname(row,col):
     alph = string.ascii_uppercase
@@ -81,11 +81,11 @@ class MyClient(discord.Client):
                 knownuser = True
                 wb = load_workbook('lolchamps.xlsx')
                 wks = wb["Clean"]
-                if not message.author.id in wb.sheetnames:
+                if not str(message.author.id) in wb.sheetnames:
                     knownuser = False
                 else: 
                     wks = wb[str(message.author.id)]
-                    print("Abriendo la hoja de " + users[message.author.id])
+                    #print("Abriendo la hoja de " + users[message.author.id])
                 if lane in lanes:
                     champ = random_champ(wks,lane)
                     champmsg = await message.reply(f"{champ} {lane}", mention_author=False, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
