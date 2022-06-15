@@ -169,7 +169,7 @@ Use this space to list resources you find helpful and would like to give credit 
 [issues-shield]: https://img.shields.io/github/issues/JorNiebla/lolchamps.svg?style=for-the-badge
 [issues-url]: https://github.com/JorNiebla/lolchamps/issues
 [license-shield]: https://img.shields.io/github/license/JorNiebla/lolchamps.svg?style=for-the-badge
-[license-url]: https://github.com/JorNiebla/lolchamps/blob/master/LICENSE.txt
+[license-url]: https://github.com/JorNiebla/lolchamps/blob/master/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/othneildrew
-[product-screenshot]: images/screenshot.png
+[linkedin-url]: https://www.linkedin.com/in/jorge-niebla-n%C3%BA%C3%B1ez/
+[product-screenshot]: images/Blitzcrank.png
