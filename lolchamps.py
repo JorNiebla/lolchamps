@@ -1,20 +1,75 @@
-from distutils.command.clean import clean
 import discord
-import gspread
+from discord_components import DiscordComponents, Button
 import random
 import string
 
-sa = gspread.service_account()
-sh = sa.open("lolchamps")
+from openpyxl import load_workbook
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOKEN = os.getenv('TOKEN')
+
+users = {}
+lanes = {'all': 8, 'top': 9, 'jg': 10, 'jung': 10, 'jng': 10,'jungle': 10, 'mid': 11, 'adc': 12, 'bot': 12, 'supp': 13, 'sup': 13}
 
 def cords_to_cellname(row,col):
     alph = string.ascii_uppercase
     return(alph[col-1]+str(row))
 
-users = {'discordid': 'Worksheet'}
-lanes = {'top': 9, 'jg': 10, 'jungle': 10, 'mid': 11, 'adc': 12, 'bot': 12, 'supp': 13, 'sup': 13}
+def random_champ(wks, lane):
+    laneid = lanes[lane]
+    limit = 0
+    for cell in wks[string.ascii_uppercase[laneid-1]]:
+        if cell.value != None:
+            limit+=1
+
+    if limit == 2: return "Cualquier"
+    return (wks.cell(random.randint(3, limit), laneid).value)
+
+def remove_champ(wks, champ):
+    champs = []
+    for ch in wks[string.ascii_uppercase[7]]:
+        champs.append(ch.value)
+
+    if not champ in champs:
+        return
+
+    cols = ['H', 'I', 'J', 'K', 'L', 'M']
+    cell_list = []
+
+    for col in cols:
+        for cell in wks[col]:
+            if cell.value == champ:
+                cell_list.append(cell)
+
+    while len(cell_list) > 0:
+        currentrow = cell_list[-1].row
+        currentcol = cell_list[-1].column
+        if currentcol < 8:
+            cell_list.pop()
+            continue
+        limit = 0
+        for cell in wks[string.ascii_uppercase[currentcol-1]]:
+            if cell.value != None:
+                limit+=1
+        
+
+        listofchamps = []
+        for i in range(currentrow+1,limit+1):
+            listofchamps.append(wks.cell(row=i,column=currentcol).value)
+
+        j = currentrow
+        for i in listofchamps:
+            wks.cell(row=j,column=currentcol,value=i)
+            j+=1
+        wks.cell(row=limit,column=currentcol,value='')
+        cell_list.pop() 
 
 class MyClient(discord.Client):
+
     async def on_ready(self):
         print('Logged on as', self.user)
 
@@ -22,62 +77,68 @@ class MyClient(discord.Client):
         #Atiende a mensajes en los que se menciona al bot
         for x in message.mentions:
             if(x==self.user):
-                lane = message.clean_content.replace('@' + self.user.name + ' ' , '')
-                react = True
-                if not message.author.id in users:
-                    await message.channel.send('No se quien eres bro te doy uno cualquiera')
-                    wks = sh.worksheet("Clean")
-                    react = False
+                lane = message.clean_content.replace(f"@{self.user.name} ", '').lower()
+                knownuser = True
+                wb = load_workbook('lolchamps.xlsx')
+                wks = wb["Clean"]
+                if not message.author.id in wb.sheetnames:
+                    knownuser = False
                 else: 
-                    wks = sh.worksheet(users[message.author.id])
+                    wks = wb[str(message.author.id)]
                     print("Abriendo la hoja de " + users[message.author.id])
                 if lane in lanes:
-                    laneid = lanes[lane]
-                    limit = int(wks.cell(2,laneid).value)
-                    champ = wks.cell(random.randint(3, limit+2), laneid).value
-                    champmsg = await message.channel.send(champ)
-                    if react:
-                        await champmsg.add_reaction("👍")
-                    return
+                    champ = random_champ(wks,lane)
+                    champmsg = await message.reply(f"{champ} {lane}", mention_author=False, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
+                    Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]])
+                    while True:
+                        try:
+                            interaction = await client.wait_for("button_click", timeout=120.0)
+
+                            if interaction.component.custom_id == "roll":
+                                # if interaction.user != message.author:
+                                #     await interaction.send("No es tu campeón amigo")
+                                champ = random_champ(wks,lane)
+                                await champmsg.delete()
+                                champmsg = await interaction.send(content=f"{champ} {lane}", components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
+                                Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]], ephemeral=False)
+
+                            elif interaction.component.custom_id == "win":
+                                if interaction.user != message.author:
+                                    await interaction.send("No es tu campeón amigo")
+                                elif knownuser:
+                                    wks = wb[str(message.author.id)]
+                                    print(interaction.message)
+                                    champ = interaction.message.content.rsplit(' ', 1)[0]
+                                    remove_champ(wks,champ)
+                                    wb.save('lolchamps.xlsx')
+                                    await interaction.send("Quitado de la lista")
+                                else:
+                                    await interaction.send("No tienes ficha creada")
+
+                            else: break
+                        except:
+                            await champmsg.delete()
+                            await message.delete()
+                            break
+
                 else:
                     await message.channel.send('No se que linea es esa bro')
-                    return
-    async def on_reaction_add(self, reaction, user):
-        #No reacciona un bot
-        if user.bot:
-            return
-        #Reacciona a un mensaje del bot
-        if reaction.message.author != self.user:
-            return
-        #El que reacciona tiene una hoja
-        if not user.id in users:
-            return
-        #Reacciono con el like
-        if reaction.emoji != "👍":
-            return
 
-        wks = sh.worksheet(users[user.id])
-        champ = reaction.message.content
-        if not champ in wks.col_values(8):
-            return
-
-        cell_list = wks.findall(champ)
-        while len(cell_list) > 0:
-            currentrow = cell_list[-1].row
-            currentcol = cell_list[-1].col
-            if currentcol < 8:
-                cell_list.pop()
-                continue
-            limit = int(wks.cell(2,currentcol).value)
-            range = cords_to_cellname(currentrow,currentcol) + ":" + cords_to_cellname(limit+1,currentcol)
-            range2 = cords_to_cellname(currentrow+1,currentcol) + ":" + cords_to_cellname(limit+2,currentcol)
-            listofchamps = wks.get(range2)
-            wks.update(range,listofchamps)
-            wks.update_cell(limit+2,currentcol,'')
-            cell_list.pop()
-        return
+    # async def on_reaction_add(self, reaction, user):
+    #     wb = load_workbook('lolchamps.xlsx')
+    #     #El que reacciona tiene una hoja
+    #     if user.id in users:
+    #         wks = wb[str(user.id)]
+    #     else:
+    #         wks = wb["Clean"]
+    #     if reaction.emoji == "✅":
+    #         champ = reaction.message.content.rsplit(' ', 1)[0]
+    #         remove_champ(wks,champ)
+    #         wb.save('lolchamps.xlsx')
+    #         return
 
 
-intents = discord.Intents(messages=True, reactions=True)
+intents = discord.Intents(messages=True, guilds=True, reactions=True)
 client = MyClient(intents=intents)
-client.run('TOKEN')
+DiscordComponents(client)
+client.run(str(TOKEN))
