@@ -112,6 +112,7 @@ class MyClient(discord.Client):
                                 embedVar = discord.Embed(color=0x00ff00)
                                 embedVar.add_field(name="Champion", value=champ, inline=False)
                                 embedVar.add_field(name="Linea", value=lane, inline=False)
+                                cleanchamp = champ.replace(" ", "")
                                 file = discord.File(f"images/{cleanchamp}.png", filename=f"{cleanchamp}.png")
                                 embedVar.set_thumbnail(url=f"attachment://{cleanchamp}.png")
                                 champmsg = await interaction.send(embed=embedVar, file=file, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
