@@ -91,8 +91,8 @@ class MyClient(discord.Client):
                     embedVar = discord.Embed(color=0x00ff00)
                     embedVar.add_field(name="Champion", value=champ, inline=False)
                     embedVar.add_field(name="Linea", value=lane, inline=False)
-                    file = discord.File("images/xd.png", filename="xd.png")
-                    embedVar.set_thumbnail(url="attachment://xd.png")
+                    file = discord.File(f"images/{champ}.png".replace(" ", ""), filename=f"{champ}.png".replace(" ", ""))
+                    embedVar.set_thumbnail(url=f"attachment://{champ}.png".replace(" ", ""))
                     champmsg = await message.reply(embed=embedVar, file=file, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
                     Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]])
                     while True:
@@ -108,8 +108,8 @@ class MyClient(discord.Client):
                                 embedVar = discord.Embed(color=0x00ff00)
                                 embedVar.add_field(name="Champion", value=champ, inline=False)
                                 embedVar.add_field(name="Linea", value=lane, inline=False)
-                                file = discord.File("images/xd.png", filename="xd.png")
-                                embedVar.set_thumbnail(url="attachment://xd.png")
+                                file = discord.File(f"images/{champ}.png".replace(" ", ""), filename=f"{champ}.png".replace(" ", ""))
+                                embedVar.set_thumbnail(url=f"attachment://{champ}.png".replace(" ", ""))
                                 champmsg = await interaction.send(embed=embedVar, file=file, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
                                 Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]], ephemeral=False)
 
