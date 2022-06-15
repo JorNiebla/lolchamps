@@ -2,6 +2,7 @@ import discord
 from discord_components import DiscordComponents, Button
 import random
 import string
+import subprocess
 
 from openpyxl import load_workbook
 
@@ -9,6 +10,8 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+subprocess.call("./scrape_champions.sh")
 
 TOKEN = os.getenv('TOKEN')
 
@@ -91,8 +94,9 @@ class MyClient(discord.Client):
                     embedVar = discord.Embed(color=0x00ff00)
                     embedVar.add_field(name="Champion", value=champ, inline=False)
                     embedVar.add_field(name="Linea", value=lane, inline=False)
-                    file = discord.File(f"images/{champ}.png".replace(" ", ""), filename=f"{champ}.png".replace(" ", ""))
-                    embedVar.set_thumbnail(url=f"attachment://{champ}.png".replace(" ", ""))
+                    cleanchamp = champ.replace(" ", "")
+                    file = discord.File(f"images/{cleanchamp}.png", filename=f"{cleanchamp}.png")
+                    embedVar.set_thumbnail(url=f"attachment://{cleanchamp}.png")
                     champmsg = await message.reply(embed=embedVar, file=file, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
                     Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]])
                     while True:
@@ -108,8 +112,8 @@ class MyClient(discord.Client):
                                 embedVar = discord.Embed(color=0x00ff00)
                                 embedVar.add_field(name="Champion", value=champ, inline=False)
                                 embedVar.add_field(name="Linea", value=lane, inline=False)
-                                file = discord.File(f"images/{champ}.png".replace(" ", ""), filename=f"{champ}.png".replace(" ", ""))
-                                embedVar.set_thumbnail(url=f"attachment://{champ}.png".replace(" ", ""))
+                                file = discord.File(f"images/{cleanchamp}.png", filename=f"{cleanchamp}.png")
+                                embedVar.set_thumbnail(url=f"attachment://{cleanchamp}.png")
                                 champmsg = await interaction.send(embed=embedVar, file=file, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
                                 Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]], ephemeral=False)
 
