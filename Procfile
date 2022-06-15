@@ -1,1 +1,1 @@
-worker: python lolchamps.py 
+gitworker: python lolchamps.py 
