@@ -88,7 +88,12 @@ class MyClient(discord.Client):
                     #print("Abriendo la hoja de " + users[message.author.id])
                 if lane in lanes:
                     champ = random_champ(wks,lane)
-                    champmsg = await message.reply(f"{champ} {lane}", mention_author=False, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
+                    embedVar = discord.Embed(color=0x00ff00)
+                    embedVar.add_field(name="Champion", value=champ, inline=False)
+                    embedVar.add_field(name="Linea", value=lane, inline=False)
+                    file = discord.File("images/xd.png", filename="xd.png")
+                    embedVar.set_thumbnail(url="attachment://xd.png")
+                    champmsg = await message.reply(embed=embedVar, file=file, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
                     Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]])
                     while True:
                         try:
@@ -99,8 +104,15 @@ class MyClient(discord.Client):
                                 #     await interaction.send("No es tu campeón amigo")
                                 champ = random_champ(wks,lane)
                                 await champmsg.delete()
-                                champmsg = await interaction.send(content=f"{champ} {lane}", components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
+
+                                embedVar = discord.Embed(color=0x00ff00)
+                                embedVar.add_field(name="Champion", value=champ, inline=False)
+                                embedVar.add_field(name="Linea", value=lane, inline=False)
+                                file = discord.File("images/xd.png", filename="xd.png")
+                                embedVar.set_thumbnail(url="attachment://xd.png")
+                                champmsg = await interaction.send(embed=embedVar, file=file, components = [[Button(label="Win", style="3", emoji = "✅", custom_id="win"), 
                                 Button(label="Re-Roll", style="1", emoji = "🔁", custom_id="roll")]], ephemeral=False)
+
 
                             elif interaction.component.custom_id == "win":
                                 if interaction.user != message.author:
