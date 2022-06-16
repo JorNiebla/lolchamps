@@ -8,9 +8,10 @@ images=$(echo $page |
     sed "s/ //g" |
     sed "s/amp;//g" |
     sed "s/&#39;/'/g")
-mkdir -p images
+rm urls.txt
 for image in $images; do
     image_url=$(echo $image | grep -o -P "https.*?.png")
     name=$(echo $image | grep -o -P "(?<=alt=\").*?(?=Original)")
-    curl $image_url > images/$name.png 2> /dev/null &
+    echo $name >> urls.txt
+    echo $image_url >> urls.txt
 done
