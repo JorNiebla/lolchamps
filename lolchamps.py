@@ -146,6 +146,7 @@ class MyClient(discord.Client):
                             break
                         
                     except:
+                        await message.channel.send("Exception")
                         await champmsg.delete()
                         await message.delete()
                         break
