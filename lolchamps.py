@@ -4,6 +4,8 @@ from discord_components import DiscordComponents, Button
 import random
 import string
 import subprocess
+import cassiopeia as cass
+import requests, json
 
 from openpyxl import load_workbook
 
@@ -12,18 +14,35 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-subprocess.call("./scrape_champions.sh")
+#subprocess.call("./scrape_champions.sh")
 
 TOKEN = os.getenv('TOKEN')
+# RIOT = os.getenv('RIOT')
+
+# cass.set_riot_api_key(str(RIOT))
+
+# Gatoxulo = cass.get_summoner(name="Gatoxulo", region="EUW")
+
+clp = requests.get('https://ddragon.leagueoflegends.com/api/versions.json').json()[0] #CurrentLeaguePatch
+champs = requests.get(f'https://ddragon.leagueoflegends.com/cdn/{clp}/data/en_US/champion.json').json()["data"] #CurrentLeaguePatch
+#print(champs)
 
 urls = {}
 
-with open("urls.txt") as file_in:
-    while True:
-        name=file_in.readline()[:-1]
-        url=file_in.readline()[:-1]
-        urls[name]=url
-        if not url: break
+for champ in champs.values():
+    name=champ["name"]
+    key=champ["id"]
+    splash=f'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{key}_0.jpg'
+    urls[name]=splash
+
+
+
+# with open("urls.txt") as file_in:
+#     while True:
+#         name=file_in.readline()[:-1]
+#         url=file_in.readline()[:-1]
+#         urls[name]=url
+#         if not url: break
 
 lanes = {'all': 8, 'top': 9, 'jg': 10, 'jung': 10, 'jng': 10,'jungle': 10, 'jungler': 10, 'mid': 11, 'adc': 12, 'bot': 12, 'supp': 13, 'sup': 13}
 
