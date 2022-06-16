@@ -8,7 +8,7 @@ images=$(echo $page |
     sed "s/ //g" |
     sed "s/amp;//g" |
     sed "s/&#39;/'/g")
-rm urls.txt
+rm urls.txt || true
 for image in $images; do
     image_url=$(echo $image | grep -o -P "https.*?.png")
     name=$(echo $image | grep -o -P "(?<=alt=\").*?(?=Original)")
