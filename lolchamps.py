@@ -6,6 +6,7 @@ import string
 import cassiopeia as cass
 import psycopg2
 import requests
+import re
 
 from openpyxl import load_workbook
 
@@ -14,39 +15,40 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-#subprocess.call("./scrape_champions.sh")
-
 TOKEN = os.getenv('TOKEN')
-DATABASE_URL = os.getenv['DATABASE_URL']
+DATABASE_URL = os.getenv('DATABASE_URL')
 con = psycopg2.connect(DATABASE_URL)
-cur = con.cursor
-# RIOT = os.getenv('RIOT')
-
-# cass.set_riot_api_key(str(RIOT))
-
-# Gatoxulo = cass.get_summoner(name="Gatoxulo", region="EUW")
+cur = con.cursor()
 
 clp = requests.get('https://ddragon.leagueoflegends.com/api/versions.json').json()[0] #CurrentLeaguePatch
 champs = requests.get(f'https://ddragon.leagueoflegends.com/cdn/{clp}/data/en_US/champion.json').json()["data"] #CurrentLeaguePatch
-#print(champs)
 
 urls = {}
+champnames = {}
 
 for champ in champs.values():
     name=champ["name"]
     key=champ["id"]
+    champnames[champ["key"]]=name
     splash=f'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{key}_0.jpg'
     urls[name]=splash
 
 urls["summoners"]="https://cdn.discordapp.com/attachments/518907821081755672/987335003371364452/unknown.png"
 
 
-# with open("urls.txt") as file_in:
-#     while True:
-#         name=file_in.readline()[:-1]
-#         url=file_in.readline()[:-1]
-#         urls[name]=url
-#         if not url: break
+rawchampselect = os.popen("curl https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-champion-statistics/global/default/rcp-fe-lol-champion-statistics.js").read()
+rawplayrates = (rawchampselect.split("a.exports=")[1].split("},function")[0])
+rawlaners = rawplayrates.replace("TOP","|TOP").replace("JUNGLE","|JGL").replace("MIDDLE","|MID").replace("BOTTOM","|ADC").replace("SUPPORT","|SUP").replace("{","").replace("}","").split("|")[1:]
+laners = []
+currentlane = 0
+for lane in rawlaners:
+    
+    betterlane = "," + lane[4:]
+    # print(betterlane)
+    currentlane = [lane[:3]] + re.findall(',(.*?):',betterlane)
+    laners.append(currentlane)
+
+laners[4],laners[3]=laners[3],laners[4]
 
 lanes = {'all': 8, 'top': 9, 'jg': 10, 'jung': 10, 'jng': 10,'jungle': 10, 'jungler': 10, 'mid': 11, 'adc': 12, 'bot': 12, 'supp': 13, 'sup': 13}
 
@@ -116,7 +118,6 @@ async def printlaner(wks,lane,champmsg,interaction,components):
     await champmsg.edit('',embed=embedVar, **components)
     await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=2)
     
-
 class MyClient(discord.Client):
 
     async def on_ready(self):
@@ -133,7 +134,7 @@ class MyClient(discord.Client):
             Button(emoji = self.get_emoji(id=987155917961318440),custom_id=f"supp{pid}")]
             lane = message.clean_content.replace(f"@{self.user.name} ", '').lower()
             knownuser = True
-            buttons = {f"roll{pid}":0, f"win{pid}":1, f"del{pid}":2, f"lanes{pid}":3,f"top{pid}":4,f"jg{pid}":5,f"mid{pid}":6,f"adc{pid}":7,f"supp{pid}":8}
+            buttons = {f"roll{pid}":0, f"win{pid}":1, f"del{pid}":2, f"lanes{pid}":3,f"top{pid}":4,f"jg{pid}":5,f"mid{pid}":6,f"adc{pid}":7,f"supp{pid}":8,f"yescreate{pid}":9,f"nocreate{pid}":10}
             lanembed = discord.Embed(color=0x00ff00).set_image(url=urls["summoners"])
             wb = load_workbook('lolchamps.xlsx')
             wks = wb["Clean"]
@@ -169,7 +170,7 @@ class MyClient(discord.Client):
                                 await message.delete()
                                 await interaction.send("Quitado de la lista")
                             else:
-                                await interaction.send("No tienes ficha creada. ¿Quieres crear una?", components[[Button(label="Yes", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"yescreate{pid}"),
+                                confirmmsg = await interaction.send("No tienes ficha creada. ¿Quieres crear una?", components[[Button(label="Yes", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"yescreate{pid}"),
                                 Button(label="No", style="4", emoji = self.get_emoji(id=987155911766335520), custom_id=f"nocreate{pid}")]])
                             continue
                         case 2: #Button for deleting the messages
@@ -191,12 +192,12 @@ class MyClient(discord.Client):
                         case 8: #Button for selecting support
                             lane = "supp"
                         case 9: #Button for creating a table for the user
-                            cur.execute(f"""CREATE TABLE {interaction.user}_table AS SELECT *
-                                        FROM clean_table""")
-                            con.commit()
-                            pass
+                            # cur.execute(f"""CREATE TABLE {interaction.user}_table AS SELECT *
+                            #             FROM clean_table""")
+                            # con.commit()
+                            await confirmmsg.delete()
                         case 10: ##Button for not creating a table for the user
-                            pass
+                            await confirmmsg.delete()
 
                     await printlaner(wks,lane,champmsg,interaction,components)
                 except:
@@ -204,6 +205,24 @@ class MyClient(discord.Client):
                     await champmsg.delete()
                     await message.delete()
                     break
+
+
+cur.execute("select exists(select * from information_schema.tables where table_name=%s)", ('clean_table',))
+if not (cur.fetchone()[0]):
+    cur.execute("""CREATE TABLE clean_table (
+    CHAMP VARCHAR(255),
+    ID INTEGER, 
+    TOP BOOLEAN, 
+    JGL BOOLEAN, 
+    MID BOOLEAN, 
+    ADC BOOLEAN, 
+    SUP BOOLEAN);""")
+
+    for id in list(champnames.keys()):
+        l = lanes(id)
+        cur.execute("INSERT INTO clean_table(CHAMP,ID,TOP,JGL,MID,ADC,SUP) VALUES (%s, %s,%s,%s,%s,%s,%s)", (champnames[id],id,l[0],l[1],l[2],l[3],l[4],))
+    con.commit()
+
 
 intents = discord.Intents(messages=True, guilds=True)
 client = MyClient(intents=intents)
