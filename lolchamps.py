@@ -36,7 +36,6 @@ for champ in champs.values():
     urls[name]=splash
 
 
-
 # with open("urls.txt") as file_in:
 #     while True:
 #         name=file_in.readline()[:-1]
@@ -45,6 +44,13 @@ for champ in champs.values():
 #         if not url: break
 
 lanes = {'all': 8, 'top': 9, 'jg': 10, 'jung': 10, 'jng': 10,'jungle': 10, 'jungler': 10, 'mid': 11, 'adc': 12, 'bot': 12, 'supp': 13, 'sup': 13}
+
+def generate_embed(champ,lane):
+    embedVar = discord.Embed(color=0x00ff00)
+    embedVar.add_field(name="Champion", value=champ)
+    embedVar.add_field(name="Linea", value=lane)
+    embedVar.set_image(url=urls[champ])
+    return embedVar
 
 def cords_to_cellname(row,col):
     alph = string.ascii_uppercase
@@ -105,11 +111,18 @@ class MyClient(discord.Client):
         print('Logged on as', self.user)
 
     async def on_message(self, message):
+        # print(message.guild.emojis)
         #Atiende a mensajes en los que se menciona al bot
         # print(f"<@&{self.user.id}>")
         # print(message.content)
         if (self.user in message.mentions) or (f"<@&{self.user.id}>" in message.content):
             pid = random.randint(MININT,MAXINT)
+            components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
+            Button(label="Re-Roll", style="1", emoji = "🔁", custom_id=f"roll{pid}"), Button(label="Delete", style="4", emoji = "🗑️", custom_id=f"del{pid}"),
+            Button(label="Lanes", style="2", emoji =self.get_emoji(id=987173438907088966) , custom_id=f"lanes{pid}")]]}
+            lanebuttons = [Button(emoji = self.get_emoji(id=987155912890417154),custom_id=f"top{pid}"),Button(emoji = self.get_emoji(id=987155914362589184),custom_id=f"jg{pid}"),
+            Button(emoji = self.get_emoji(id=987155915541205002),custom_id=f"mid{pid}"),Button(emoji = self.get_emoji(id=987172387277656104),custom_id=f"adc{pid}"),
+            Button(emoji = self.get_emoji(id=987155917961318440),custom_id=f"supp{pid}")]
             lane = message.clean_content.replace(f"@{self.user.name} ", '').lower()
             knownuser = True
             wb = load_workbook('lolchamps.xlsx')
@@ -121,55 +134,93 @@ class MyClient(discord.Client):
                 #print("Abriendo la hoja de " + users[message.author.id])
             if lane in lanes:
                 champ = random_champ(wks,lane)
-                embedVar = discord.Embed(color=0x00ff00)
-                embedVar.add_field(name="Champion", value=champ, inline=False)
-                embedVar.add_field(name="Linea", value=lane, inline=False)
-                embedVar.set_image(url=urls[champ])
-                champmsg = await message.reply(embed=embedVar, components = [[Button(label="Win", style="3", emoji = "✅", custom_id=f"win{pid}"), 
-                Button(label="Re-Roll", style="1", emoji = "🔁", custom_id=f"roll{pid}"), Button(label="Delete", style="4", emoji = "🗑️", custom_id=f"del{pid}")]])
-                while True:
-                    try:
-                        interaction = await client.wait_for("button_click")
-                        if interaction.component.custom_id == f"roll{pid}":
-                            # if interaction.user != message.author:
-                            #     await interaction.send("No es tu campeón amigo")
-                            champ = random_champ(wks,lane)
+                embedVar = generate_embed(champ,lane)
+                champmsg = await message.reply(embed=embedVar, **components)
 
-                            embedVar = discord.Embed(color=0x00ff00)
-                            embedVar.add_field(name="Champion", value=champ, inline=False)
-                            embedVar.add_field(name="Linea", value=lane, inline=False)
-                            embedVar.set_image(url=urls[champ])
-                            await champmsg.edit(embed=embedVar, components = [[Button(label="Win", style="3", emoji = "✅", custom_id=f"win{pid}"), 
-                            Button(label="Re-Roll", style="1", emoji = "🔁", custom_id=f"roll{pid}"), Button(label="Delete", style="4", emoji = "🗑️", custom_id=f"del{pid}")]])
-                            msg = await interaction.send(content="Re-Roll",ephemeral=False)
-                            await msg.delete()
-                            
+            else:
+                champmsg = await message.reply('Que linea quieres bro', components=[lanebuttons])
 
-                        elif interaction.component.custom_id == f"win{pid}":
-                            if interaction.user != message.author:
-                                await interaction.send("No es tu campeón amigo")
-                            elif knownuser:
-                                wks = wb[str(message.author.id)]
-                                champ = interaction.message.content.rsplit(' ', 1)[0]
-                                remove_champ(wks,champ)
-                                wb.save('lolchamps.xlsx')
-                                await interaction.send("Quitado de la lista")
-                            else:
-                                await interaction.send("No tienes ficha creada")
-                        
-                        elif interaction.component.custom_id == f"del{pid}":
-                            await champmsg.delete()
-                            await message.delete()
-                            break
-                        
-                    except:
-                        await message.channel.send("Exception")
+            while True:
+                try:
+                    interaction = await client.wait_for("button_click")
+                    customid=interaction.component.custom_id
+
+                    if customid == f"roll{pid}":
+                        # if interaction.user != message.author:
+                        #     await interaction.send("No es tu campeón amigo")
+                        champ = random_champ(wks,lane)
+                        embedVar = generate_embed(champ, lane)
+                        await champmsg.edit(embed=embedVar, **components)
+                        msg = await interaction.send(content="Re-Roll<a:kirby:759485375718359081>",ephemeral=False)
+                        await msg.delete()
+
+                    elif customid == f"win{pid}":
+                        if interaction.user != message.author:
+                            await interaction.send("No es tu campeón amigo")
+                        elif knownuser:
+                            wks = wb[str(message.author.id)]
+                            champ = interaction.message.content.rsplit(' ', 1)[0]
+                            remove_champ(wks,champ)
+                            wb.save('lolchamps.xlsx')
+                            await interaction.send("Quitado de la lista")
+                        else:
+                            await interaction.send("No tienes ficha creada")
+                    
+                    elif customid == f"del{pid}":
                         await champmsg.delete()
                         await message.delete()
                         break
 
-            else:
-                await message.channel.send('No se que linea es esa bro')
+                    elif customid == f"lanes{pid}":
+                        await champmsg.edit('Que linea quieres bro', embed=None, components=[lanebuttons])
+                        msg = await interaction.send(content="Re-Roll<a:kirby:759485375718359081>",ephemeral=False)
+                        await msg.delete()
+
+                    elif customid == f"top{pid}":
+                        lane = "top"
+                        champ = random_champ(wks,lane)
+                        embedVar = generate_embed(champ, lane)
+                        await champmsg.edit(embed=embedVar, **components)
+                        msg = await interaction.send(content="Re-Roll<a:kirby:759485375718359081>",ephemeral=False)
+                        await msg.delete()
+
+                    elif customid == f"jg{pid}":
+                        lane = "jg"
+                        champ = random_champ(wks,lane)
+                        embedVar = generate_embed(champ, lane)
+                        await champmsg.edit(embed=embedVar, **components)
+                        msg = await interaction.send(content="Re-Roll<a:kirby:759485375718359081>",ephemeral=False)
+                        await msg.delete()
+
+                    elif customid == f"mid{pid}":
+                        lane = "mid"
+                        champ = random_champ(wks,lane)
+                        embedVar = generate_embed(champ, lane)
+                        await champmsg.edit(embed=embedVar, **components)
+                        msg = await interaction.send(content="Re-Roll<a:kirby:759485375718359081>",ephemeral=False)
+                        await msg.delete()
+
+                    elif customid == f"adc{pid}":
+                        lane = "adc"
+                        champ = random_champ(wks,lane)
+                        embedVar = generate_embed(champ, lane)
+                        await champmsg.edit(embed=embedVar, **components)
+                        msg = await interaction.send(content="Re-Roll<a:kirby:759485375718359081>",ephemeral=False)
+                        await msg.delete()
+
+                    elif customid == f"supp{pid}":
+                        lane = "supp"
+                        champ = random_champ(wks,lane)
+                        embedVar = generate_embed(champ, lane)
+                        await champmsg.edit(embed=embedVar, **components)
+                        msg = await interaction.send(content="Re-Roll<a:kirby:759485375718359081>",ephemeral=False)
+                        await msg.delete()
+                    
+                except:
+                    await message.channel.send("Exception")
+                    await champmsg.delete()
+                    await message.delete()
+                    break
 
 intents = discord.Intents(messages=True, guilds=True)
 client = MyClient(intents=intents)
