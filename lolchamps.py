@@ -124,8 +124,7 @@ class MyClient(discord.Client):
                 embedVar = discord.Embed(color=0x00ff00)
                 embedVar.add_field(name="Champion", value=champ, inline=False)
                 embedVar.add_field(name="Linea", value=lane, inline=False)
-                cleanchamp = champ.replace(" ", "")
-                embedVar.set_image(url=urls[cleanchamp])
+                embedVar.set_image(url=urls[champ])
                 champmsg = await message.reply(embed=embedVar, components = [[Button(label="Win", style="3", emoji = "✅", custom_id=f"win{pid}"), 
                 Button(label="Re-Roll", style="1", emoji = "🔁", custom_id=f"roll{pid}"), Button(label="Delete", style="4", emoji = "🗑️", custom_id=f"del{pid}")]])
                 while True:
@@ -139,8 +138,7 @@ class MyClient(discord.Client):
                             embedVar = discord.Embed(color=0x00ff00)
                             embedVar.add_field(name="Champion", value=champ, inline=False)
                             embedVar.add_field(name="Linea", value=lane, inline=False)
-                            cleanchamp = champ.replace(" ", "")
-                            embedVar.set_image(url=urls[cleanchamp])
+                            embedVar.set_image(url=urls[champ])
                             await champmsg.edit(embed=embedVar, components = [[Button(label="Win", style="3", emoji = "✅", custom_id=f"win{pid}"), 
                             Button(label="Re-Roll", style="1", emoji = "🔁", custom_id=f"roll{pid}"), Button(label="Delete", style="4", emoji = "🗑️", custom_id=f"del{pid}")]])
                             msg = await interaction.send(content="Re-Roll",ephemeral=False)
