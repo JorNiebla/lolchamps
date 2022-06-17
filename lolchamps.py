@@ -3,9 +3,9 @@ import discord
 from discord_components import DiscordComponents, Button
 import random
 import string
-import subprocess
 import cassiopeia as cass
-import requests, json
+import psycopg2
+import requests
 
 from openpyxl import load_workbook
 
@@ -17,6 +17,9 @@ load_dotenv()
 #subprocess.call("./scrape_champions.sh")
 
 TOKEN = os.getenv('TOKEN')
+DATABASE_URL = os.getenv['DATABASE_URL']
+con = psycopg2.connect(DATABASE_URL)
+cur = con.cursor
 # RIOT = os.getenv('RIOT')
 
 # cass.set_riot_api_key(str(RIOT))
@@ -111,7 +114,7 @@ async def printlaner(wks,lane,champmsg,interaction,components):
     champ = random_champ(wks,lane)
     embedVar = generate_embed(champ, lane)
     await champmsg.edit('',embed=embedVar, **components)
-    await interaction.send(content="<a:kirby:759485375718359081>Re-Roll<a:kirby:759485375718359081>",ephemeral=False, delete_after=2)
+    await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=2)
     
 
 class MyClient(discord.Client):
@@ -152,9 +155,9 @@ class MyClient(discord.Client):
                     customid=interaction.component.custom_id
 
                     match buttons[customid]:
-                        case 0:
+                        case 0: #Button for re-rolling
                             pass
-                        case 1:
+                        case 1: #Button for selecting a win
                             if interaction.user != message.author:
                                 await interaction.send("No es tu campeón amigo")
                             elif knownuser:
@@ -162,28 +165,38 @@ class MyClient(discord.Client):
                                 champ = interaction.message.content.rsplit(' ', 1)[0]
                                 remove_champ(wks,champ)
                                 wb.save('lolchamps.xlsx')
+                                await champmsg.delete()
+                                await message.delete()
                                 await interaction.send("Quitado de la lista")
                             else:
-                                await interaction.send("No tienes ficha creada")
+                                await interaction.send("No tienes ficha creada. ¿Quieres crear una?", components[[Button(label="Yes", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"yescreate{pid}"),
+                                Button(label="No", style="4", emoji = self.get_emoji(id=987155911766335520), custom_id=f"nocreate{pid}")]])
                             continue
-                        case 2:
+                        case 2: #Button for deleting the messages
                             await champmsg.delete()
                             await message.delete()
                             break
-                        case 3:
+                        case 3: #Button for selecting lanes
                             await champmsg.edit('Que linea quieres bro', embed=lanembed, components=[lanebuttons])
                             await interaction.send(content="<a:kirby:759485375718359081>Lineas<a:kirby:759485375718359081>",ephemeral=False, delete_after=2)
                             continue
-                        case 4:
+                        case 4: #Button for selecting top
                             lane = "top"
-                        case 5:
+                        case 5: #Button for selecting jungle
                             lane = "jungle"
-                        case 6:
+                        case 6: #Button for selecting mid
                             lane = "mid"
-                        case 7:
+                        case 7: #Button for selecting ADCarry
                             lane = "adc"
-                        case 8:
+                        case 8: #Button for selecting support
                             lane = "supp"
+                        case 9: #Button for creating a table for the user
+                            cur.execute(f"""CREATE TABLE {interaction.user}_table AS SELECT *
+                                        FROM clean_table""")
+                            con.commit()
+                            pass
+                        case 10: ##Button for not creating a table for the user
+                            pass
 
                     await printlaner(wks,lane,champmsg,interaction,components)
                 except:
