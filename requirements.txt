@@ -9,7 +9,6 @@ multidict
 yarl
 idna
 discord.py==1.7.3
-python-dotenv
-openpyxl
 cassiopeia
 psycopg2-binary
+pandas
