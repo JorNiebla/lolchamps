@@ -16,7 +16,7 @@ cur = con.cursor()
 def generate_embed(champ,lane):
     embedVar = discord.Embed(color=0x00ff00)
     embedVar.add_field(name="Champion", value=champ)
-    embedVar.add_field(name="Linea", value=lane)
+    embedVar.add_field(name="Lane", value=lane)
     #embedVar.set_image(url=urls[champ])
     return embedVar
 
@@ -78,7 +78,7 @@ class MyClient(discord.Client):
                 champmsg = await message.reply(embed=embedVar, **components)
 
             else:
-                champmsg = await message.reply('Que linea quieres bro', embed=lanembed, components=[lanebuttons])
+                champmsg = await message.reply('What lane do you want to see?', embed=lanembed, components=[lanebuttons])
 
             while True:
                 try:
@@ -90,15 +90,15 @@ class MyClient(discord.Client):
                             pass
                         case 1: #Button for selecting a win
                         #     if interaction.user != message.author:
-                        #         await interaction.send("No es tu campeón amigo")
+                        #         await interaction.send("This is not your profile to change!")
                             if knownuser:
                                 # champ = interaction.message.content.rsplit(' ', 1)[0]
                                 # await champmsg.delete()
                                 # await message.delete()
-                                await interaction.send("Quitado de la lista")
+                                await interaction.send("Congratulations for winning!")
                             else:
                                 print("Confirmacion empezada")
-                                confirmmsg = await interaction.send("No tienes ficha creada. ¿Quieres crear una?", 
+                                confirmmsg = await interaction.send("You don't have a profile, do you want to create one?", 
                                 components[[Button(label="Yes", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"yescreate{pid}"),
                                 Button(label="No", style="4", emoji = self.get_emoji(id=987155911766335520), custom_id=f"nocreate{pid}")]])
                                 print("Confirmacion creada")
@@ -108,7 +108,7 @@ class MyClient(discord.Client):
                             await message.delete()
                             break
                         case 3: #Button for selecting lanes
-                            await champmsg.edit('Que linea quieres bro', embed=lanembed, components=[lanebuttons])
+                            await champmsg.edit('What lane do you want to see?', embed=lanembed, components=[lanebuttons])
                             await interaction.send(content="<a:kirby:759485375718359081>Lineas<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
                             continue
                         case 4: #Button for selecting top
