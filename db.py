@@ -35,10 +35,11 @@ def is_played(champid,lane):
         return rates[str(champid)][lane]["playRate"] > 0
 
 def create_clean_DB(con,cur):
+    cur.execute("DROP TABLE clean_table")
     dump_data()
     championsjson = requests.get('http://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json').json()
 
-    cur.execute("""CREATE TABLE clean_table (
+    cur.execute("""CREATE TABLE table_clean (
     CHAMP VARCHAR(255),
     ALIAS VARCHAR(255),
     ID INTEGER, 
@@ -47,6 +48,7 @@ def create_clean_DB(con,cur):
     MID BOOLEAN, 
     ADC BOOLEAN, 
     SUP BOOLEAN,
+    WIN BOOLEAN,
     SPLASH VARCHAR(255),
     PRIMARY KEY(ID));""")
 
@@ -55,8 +57,8 @@ def create_clean_DB(con,cur):
         champalias=champ["key"]
         champid=champ["id"]
         champsplash=f'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champalias}_0.jpg'
-        aquery = "INSERT INTO clean_table(CHAMP,ALIAS,ID,TOP,JGL,MID,ADC,SUP,SPLASH) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-        data = (champname,champalias,champid,is_played(champid,"TOP"),is_played(champid,"JUNGLE"),is_played(champid,"MIDDLE"),is_played(champid,"BOTTOM"),is_played(champid,"UTILITY"),champsplash,)
+        aquery = "INSERT INTO table_clean(CHAMP,ALIAS,ID,TOP,JGL,MID,ADC,SUP,WIN,SPLASH) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        data = (champname,champalias,champid,is_played(champid,"TOP"),is_played(champid,"JUNGLE"),is_played(champid,"MIDDLE"),is_played(champid,"BOTTOM"),is_played(champid,"UTILITY"),False,champsplash,)
         cur.execute(aquery,data)
     con.commit()
 
@@ -67,11 +69,11 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 con = psycopg2.connect(DATABASE_URL)
 cur = con.cursor()
 
-# cur.execute("DROP TABLE clean_table")
-cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", ('clean_table',))
+cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", ('table_clean',))
 if not (cur.fetchone()[0]):
     create_clean_DB(con,cur)
 
-cur.execute("SELECT * FROM clean_table")
-# df = pandas.DataFrame(cur.fetchall(),columns=["Name","Alias","ID","TOP", "JUNGLE","MID","ADC","SUPP","Splash"])
-# print(df)
+cur.execute("SELECT * FROM table_clean")
+df = pandas.DataFrame(cur.fetchall(),columns=["Name","Alias","ID","TOP", "JUNGLE","MID","ADC","SUPP", "WIN", "Splash"])
+with pandas.option_context('display.max_rows', None):  # more options can be specified also
+    print(df)
