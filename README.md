@@ -1,22 +1,5 @@
 <div id="top"></div>
-<!--
-*** Thanks for checking out the Best-README-Template. If you have a suggestion
-*** that would make this better, please fork the repo and create a pull request
-*** or simply open an issue with the tag "enhancement".
-*** Don't forget to give the project a star!
-*** Thanks again! Now go create something AMAZING! :D
--->
 
-
-
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
@@ -25,19 +8,18 @@
 [![LinkedIn][linkedin-shield]][linkedin-url]
 
 
-
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-
-  <h3 align="center">A discord bot for tracking Jack of all Champs</h3>
+  <img src="images/logo.png" alt="logo" width=200 height=200></img>
+  <h3 align="center">A discord bot for tracking your wins with all Champs</h3>
 </div>
 
 
 
 <!-- TABLE OF CONTENTS -->
 <details>
-  <summary>Table of Contents</summary>
+  <summary>Usage</summary>
   <ol>
     <li>
       <a href="#about-the-project">About The Project</a>
@@ -63,8 +45,6 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
-
 Recently Riot Games added challenges to League of Legends, in particular one called "Jack of All Champs" that requires you to win at least once with every champion on the game.
 
 The game itself lets you see the wins you have on each champions but only if you are not in champion select and sometimes you forget to check it before queueing or you just play fill and dont bother to check every lane for a champ. Since I had this problem I needed a way to track which champion have ready won a game, so instead of just writting them down on a notepad I compiled a spreadsheet with every champion on the lane which are played as League Patch 12.11 and made a discord bot that gives me a champion without a win on the lane I desire.
@@ -77,11 +57,12 @@ The game itself lets you see the wins you have on each champions but only if you
 <!-- GETTING STARTED -->
 ## Getting Started
 
-To make our own bot we will be using Python as our programming language, google spreadsheets as our spreedsheet provider and discord.
+To develop the bot, we will be using Python as our programming language. For data, we will create a data base using PostgreSQL, and discord.
 
 ### Prerequisites
 
-Before getting into creating the bot we need a few things.
+The developing tools we used are the following:
+
 * Python3
 * Discord.py
   ```sh
@@ -101,12 +82,6 @@ Before getting into creating the bot we need a few things.
    ```sh
    git clone https://github.com/JorNiebla/lolchamps.git
    ```
-2. Upload the spreadsheet called "lolchamps" into your google drive
-3. Create a new project in [Google Cloud Console](https://console.cloud.google.com)
-4. Add a [service account](https://cloud.google.com/iam/docs/service-accounts) (On the left side access the credential tab and you can administrate the service accounts)
-5. Activate both [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) and [Google Sheets API](https://console.cloud.google.com/apis/library/sheets.googleapis.com)
-6. Create a bot on the [Discord Developer Portal](https://discord.com/developers/docs/intro) and get the secret token (DON'T SHARE IT WITH ANYONE)
-7. 
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -132,9 +107,11 @@ Distributed under the Apache License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Your Name - [@your_twitter](https://twitter.com/your_username) - email@example.com
+* Jorge Niebla - https://github.com/JorNiebla
+* Daniel del Castillo de la Rosa - https://github.com/Daniel-del-Castillo
+* Antonella García - https://github.com/confliicted
 
-Project Link: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
+Project Link: [LolChamps](https://github.com/JorNiebla/lolchamps)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
