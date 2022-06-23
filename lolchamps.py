@@ -137,7 +137,7 @@ class MyClient(discord.Client):
                         case 11: #Confirm win
                             cur.execute(f"""UPDATE table_{userid}
                                 SET WIN = True 
-                                WHERE CHAMP='{champmsg.embeds[0].fields[0].value}'""")
+                                WHERE ID='{champ[1]}'""")
                             con.commit()
                             await interaction.send("Congratulations on the win!")
                             await champmsg.delete()
@@ -145,7 +145,10 @@ class MyClient(discord.Client):
                             continue
                         case 12: #Cancel win
                             continue
-                    await printlaner(lane,userid,champmsg,interaction,components,cur)
+                    champ = random_champ(lanes[lane],userid,cur)
+                    embedVar = generate_embed(champ, lane)
+                    await champmsg.edit('',embed=embedVar, **components)
+                    await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
                 except asyncio.TimeoutError:
                     await message.channel.send("Timeout, deleting message...", delete_after=10)
                     await champmsg.delete()
@@ -157,6 +160,7 @@ class MyClient(discord.Client):
                     await champmsg.delete()
                     await message.delete()
                     break
+            con.close()
 
 
 TOKEN = os.getenv('TOKEN')
