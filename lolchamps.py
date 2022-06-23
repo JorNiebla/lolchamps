@@ -42,11 +42,22 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         con = psycopg2.connect(DATABASE_URL)
         cur = con.cursor()
-        if(self.user in message.mentions) and (message.content == f"<@{self.user.id}> rebuild") and (message.author == 371076929022984196):
+
+        botpinged = False
+        for role in message.role_mentions:
+            if role.tags.is_bot_managed() and role.tags.bot_id == self.user.id:
+                botpinged = True
+                break
+        if(self.user in message.mentions):
+            botpinged = True
+
+        if not botpinged:
+            pass
+        elif(message.content == f"<@{self.user.id}> rebuild") and (message.author == 371076929022984196):
             print("rebuilding")
             cur.execute("DROP TABLE clean_table")
             db.create_clean_DB(con,cur)
-        elif(self.user in message.mentions) and (f"<@{self.user.id}> win" in message.content):
+        elif(f"<@{self.user.id}> win" in message.content):
             champname = message.clean_content.replace(f"@{self.user.name} win ", '').replace("'", "''")
             if champname=='': champname="empty"
             cur.execute(f"SELECT EXISTS(SELECT * FROM table_clean WHERE CHAMP = '{champname}')")
@@ -66,7 +77,7 @@ class MyClient(discord.Client):
                     print(traceback.format_exc())
                     await message.channel.send("Something went wrong, sorry I couldn't register the win", delete_after=10) 
 
-        elif(self.user in message.mentions) and (f"<@{self.user.id}> new" in message.content):
+        elif(f"<@{self.user.id}> new" in message.content):
             cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", (f'table_{message.author.id}',))
             if (cur.fetchone()[0]):
                 await message.channel.send("You already have profile", delete_after=10)
@@ -84,7 +95,7 @@ class MyClient(discord.Client):
                 except:
                     print(traceback.format_exc())
                     await message.channel.send("Something went wrong, sorry I couldn't create the profile", delete_after=10)
-        elif (self.user in message.mentions) or (f"<@{self.user.id}>" in message.content):
+        else:
             pid = random.randint(MININT,MAXINT)
 
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
@@ -196,7 +207,7 @@ class MyClient(discord.Client):
                     await champmsg.delete()
                     await message.delete()
                     break
-            con.close()
+        con.close()
 
 
 TOKEN = os.getenv('TOKEN')
