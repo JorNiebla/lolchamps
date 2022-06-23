@@ -29,12 +29,8 @@ def remove_champ(wks, champ):
    pass
 
 async def printlaner(lane,userid,champmsg,interaction,components,cur):
-    print("voy a pillar uno random")
     champ = random_champ(lanes[lane],userid,cur)
-    print("pillado")
-    print("voy a hacer un embed")
     embedVar = generate_embed(champ, lane)
-    print("hecho")
     await champmsg.edit('',embed=embedVar, **components)
     await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
     
@@ -124,24 +120,22 @@ class MyClient(discord.Client):
                         case 8: #Button for selecting support
                             lane = "supp"
                         case 9: #Button for creating a table for the user
-                            print("Le dieron que si")
                             cur.execute(f"""CREATE TABLE table_{interaction.user.id} AS (
                                 SELECT
                                  * 
                                  FROM
                                   table_clean
                                 )""")
-                            print("ejecuto")
                             con.commit()
-                            print("comiteo")
                             await interaction.send("Created (Remember to remove this message)")
+                            knownuser = True
+                            userid = str(message.author.id)
                             continue
                         case 10: #Button for not creating a table for the user
-                            print("Le dieron que no")
                             await interaction.send("Cancelled (Remember to remove this message)")
                             continue
                         case 11: #Confirm win
-                            cur.execute(f"""UPDATE table_{interaction.user.id}
+                            cur.execute(f"""UPDATE table_{userid}
                                 SET WIN = True 
                                 WHERE CHAMP='{champmsg.embeds[0].fields[0].value}'""")
                             con.commit()
@@ -152,7 +146,6 @@ class MyClient(discord.Client):
                         case 12: #Cancel win
                             continue
                     await printlaner(lane,userid,champmsg,interaction,components,cur)
-                    print("todo perfe")
                 except asyncio.TimeoutError:
                     await message.channel.send("Timeout, deleting message...", delete_after=10)
                     await champmsg.delete()
