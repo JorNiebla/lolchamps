@@ -29,8 +29,12 @@ def remove_champ(wks, champ):
    pass
 
 async def printlaner(lane,userid,champmsg,interaction,components,cur):
-    champ = random_champ(lane,userid,cur)
+    print("voy a pillar uno random")
+    champ = random_champ(lanes[lane],userid,cur)
+    print("pillado")
+    print("voy a hacer un embed")
     embedVar = generate_embed(champ, lane)
+    print("hecho")
     await champmsg.edit('',embed=embedVar, **components)
     await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
     
@@ -148,12 +152,13 @@ class MyClient(discord.Client):
                         case 12: #Cancel win
                             continue
                     await printlaner(lane,userid,champmsg,interaction,components,cur)
+                    print("todo perfe")
                 except asyncio.TimeoutError:
                     await message.channel.send("Timeout, deleting message...", delete_after=10)
                     await champmsg.delete()
                     await message.delete()
                     break
-                else:
+                except:
                     print(traceback.format_exc())
                     await message.channel.send("Exception", delete_after=10)
                     await champmsg.delete()
