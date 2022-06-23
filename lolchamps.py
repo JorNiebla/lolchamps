@@ -8,11 +8,7 @@ import psycopg2
 import db
 import os
 import traceback
-
-TOKEN = os.getenv('TOKEN')
-DATABASE_URL = os.getenv('DATABASE_URL')
-con = psycopg2.connect(DATABASE_URL)
-cur = con.cursor()
+import asyncio
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle' : "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP"}
 
@@ -23,7 +19,7 @@ def generate_embed(champ,lane):
     embedVar.set_image(url=champ[2])
     return embedVar
 
-def random_champ(lane,userid):
+def random_champ(lane,userid,cur):
     cur.execute(f"SELECT CHAMP, ID, SPLASH FROM table_{userid} WHERE {lane} = True AND WIN = False")
     champ = random.choice(cur.fetchall())
     print(champ)
@@ -32,8 +28,8 @@ def random_champ(lane,userid):
 def remove_champ(wks, champ):
    pass
 
-async def printlaner(lane,userid,champmsg,interaction,components):
-    champ = random_champ(lane,userid)
+async def printlaner(lane,userid,champmsg,interaction,components,cur):
+    champ = random_champ(lane,userid,cur)
     embedVar = generate_embed(champ, lane)
     await champmsg.edit('',embed=embedVar, **components)
     await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
@@ -44,6 +40,8 @@ class MyClient(discord.Client):
         print('Logged on as', self.user)
 
     async def on_message(self, message):
+        con = psycopg2.connect(DATABASE_URL)
+        cur = con.cursor()
         if(self.user in message.mentions) and (message.content == f"@{self.user.name} rebuild") and (message.author == 371076929022984196):
             print("rebuilding")
             db.create_clean_DB(con,cur)
@@ -73,7 +71,7 @@ class MyClient(discord.Client):
                 userid = str(message.author.id)
 
             if lane in lanes:
-                champ = random_champ(lanes[lane],userid)
+                champ = random_champ(lanes[lane],userid,cur)
                 embedVar = generate_embed(champ,lane)
                 champmsg = await message.reply(embed=embedVar, **components)
 
@@ -82,8 +80,11 @@ class MyClient(discord.Client):
 
             while True:
                 try:
-                    interaction = await client.wait_for("button_click")
+                    interaction = await client.wait_for("button_click",timeout=5400)
                     customid=interaction.component.custom_id
+
+                    if not customid in buttons: #If this interaction doesnt belong to the original message
+                        continue
 
                     match buttons[customid]:
                         case 0: #Button for re-rolling
@@ -146,14 +147,22 @@ class MyClient(discord.Client):
                             continue
                         case 12: #Cancel win
                             continue
-
-                    await printlaner(lane,userid,champmsg,interaction,components)
-                except:
+                    await printlaner(lane,userid,champmsg,interaction,components,cur)
+                except asyncio.TimeoutError:
+                    await message.channel.send("Timeout, deleting message...", delete_after=10)
+                    await champmsg.delete()
+                    await message.delete()
+                    break
+                else:
                     print(traceback.format_exc())
                     await message.channel.send("Exception", delete_after=10)
                     await champmsg.delete()
                     await message.delete()
                     break
+
+
+TOKEN = os.getenv('TOKEN')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 intents = discord.Intents(messages=True, guilds=True)
 client = MyClient(intents=intents)
