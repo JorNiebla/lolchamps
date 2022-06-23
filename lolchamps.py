@@ -139,9 +139,9 @@ class MyClient(discord.Client):
                                 SET WIN = True 
                                 WHERE CHAMP='{champmsg.embeds[0].fields[0].value}'""")
                             con.commit()
+                            await interaction.send("Congratulations on the win!")
                             await champmsg.delete()
                             await message.delete()
-                            interaction.send("Congratulations on the win!")
                             continue
                         case 12: #Cancel win
                             continue
