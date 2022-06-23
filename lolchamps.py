@@ -42,10 +42,49 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         con = psycopg2.connect(DATABASE_URL)
         cur = con.cursor()
-        if(self.user in message.mentions) and (message.content == f"@{self.user.name} rebuild") and (message.author == 371076929022984196):
+        if(self.user in message.mentions) and (message.content == f"<@{self.user.id}> rebuild") and (message.author == 371076929022984196):
             print("rebuilding")
+            cur.execute("DROP TABLE clean_table")
             db.create_clean_DB(con,cur)
-        elif (self.user in message.mentions) or (f"<@&{self.user.id}>" in message.content):
+        elif(self.user in message.mentions) and (f"<@{self.user.id}> win" in message.content):
+            champname = message.clean_content.replace(f"@{self.user.name} win ", '').replace("'", "''")
+            if champname=='': champname="empty"
+            cur.execute(f"SELECT EXISTS(SELECT * FROM table_clean WHERE CHAMP = '{champname}')")
+            if not (cur.fetchone()[0]):
+                await message.channel.send("I dont know that champion, please type a valid champion (full name and capital letters)", delete_after=10)
+            else:
+                try:
+                    cur.execute(f"""UPDATE table_{message.author.id}
+                                SET WIN = True 
+                                WHERE CHAMP='{champname}'""")
+                    con.commit()
+                    print("Winning")
+                    await message.channel.send("Congratulations on the win with " + champname, delete_after=10)
+                except psycopg2.errors.UndefinedTable:
+                    await message.channel.send("You don't have a profile, create one by mentioning me and typing 'new'", delete_after=10)
+                except:
+                    print(traceback.format_exc())
+                    await message.channel.send("Something went wrong, sorry I couldn't register the win", delete_after=10) 
+
+        elif(self.user in message.mentions) and (f"<@{self.user.id}> new" in message.content):
+            cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", (f'table_{message.author.id}',))
+            if (cur.fetchone()[0]):
+                await message.channel.send("You already have profile", delete_after=10)
+            else:
+                try:
+                    cur.execute(f"""CREATE TABLE table_{message.author.id} AS (
+                                SELECT
+                                 * 
+                                FROM
+                                  table_clean
+                                )""")
+                    con.commit()
+                    print("Created")
+                    await message.channel.send("Profile created", delete_after=10)
+                except:
+                    print(traceback.format_exc())
+                    await message.channel.send("Something went wrong, sorry I couldn't create the profile", delete_after=10)
+        elif (self.user in message.mentions) or (f"<@{self.user.id}>" in message.content):
             pid = random.randint(MININT,MAXINT)
 
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
@@ -139,16 +178,13 @@ class MyClient(discord.Client):
                                 SET WIN = True 
                                 WHERE ID='{champ[1]}'""")
                             con.commit()
-                            await interaction.send("Congratulations on the win!")
-                            await champmsg.delete()
-                            await message.delete()
-                            continue
+                            await interaction.send(f"Congratulations on the win with {champ[0]}! I'll get you another champ")
                         case 12: #Cancel win
                             continue
                     champ = random_champ(lanes[lane],userid,cur)
                     embedVar = generate_embed(champ, lane)
                     await champmsg.edit('',embed=embedVar, **components)
-                    await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
+                    await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=0.1)
                 except asyncio.TimeoutError:
                     await message.channel.send("Timeout, deleting message...", delete_after=10)
                     await champmsg.delete()

@@ -35,7 +35,6 @@ def is_played(champid,lane):
         return rates[str(champid)][lane]["playRate"] > 0
 
 def create_clean_DB(con,cur):
-    cur.execute("DROP TABLE clean_table")
     dump_data()
     championsjson = requests.get('http://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json').json()
 
