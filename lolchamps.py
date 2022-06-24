@@ -53,10 +53,15 @@ class MyClient(discord.Client):
 
         if not botpinged:
             pass
+
         elif(message.content == f"<@{self.user.id}> rebuild") and (message.author == 371076929022984196):
             print("rebuilding")
             cur.execute("DROP TABLE clean_table")
             db.create_clean_DB(con,cur)
+
+        elif(f"<@{self.user.id}> stats" in message.content):
+            pass
+        
         elif(f"<@{self.user.id}> win" in message.content):
             champname = message.clean_content.replace(f"@{self.user.name} win ", '').replace("'", "''")
             if champname=='': champname="empty"

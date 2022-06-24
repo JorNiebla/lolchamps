@@ -1,8 +1,10 @@
+from xml.etree.ElementInclude import include
 import psycopg2
 import requests
 import os
 import pathlib
 import pandas
+import matplotlib
 import json
 import re
 
@@ -76,3 +78,6 @@ cur.execute("SELECT * FROM table_clean")
 df = pandas.DataFrame(cur.fetchall(),columns=["Name","Alias","ID","TOP", "JUNGLE","MID","ADC","SUPP", "WIN", "Splash"])
 with pandas.option_context('display.max_rows', None):  # more options can be specified also
     print(df)
+# plot = df.groupby(['WIN']).plot(kind='pie', y='TOP',include_bool=True)
+
+# matplotlib.pyplot.show()
