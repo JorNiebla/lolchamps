@@ -50,6 +50,8 @@ async def win_champ(cur,con,champname,userid,channel):
                         VALUES({champid}, {userid})""")
             con.commit()
             await channel.send(f"Congratulations on the win with {champname}", delete_after=10)
+        except psycopg2.errors.UniqueViolation:
+            await channel.send(f"You have already won with {champname}, try another champ", delete_after=10) 
         except:
             print(traceback.format_exc())
             await channel.send(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=10) 

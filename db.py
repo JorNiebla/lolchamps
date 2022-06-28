@@ -75,7 +75,6 @@ cur.execute("""SELECT
                 EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)""", ('champions','profiles','wins',))
 
 results=cur.fetchall()[0]
-print(results)
 if not (results[0]):
     update_champions_DB(con,cur)
 
