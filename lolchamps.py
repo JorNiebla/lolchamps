@@ -1,3 +1,4 @@
+from turtle import back
 from xmlrpc.client import MAXINT, MININT
 import discord
 from discord_components import DiscordComponents, Button
@@ -9,7 +10,10 @@ import traceback
 import asyncio
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
+import requests
+from PIL import Image
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle' : "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP"}
 
@@ -88,18 +92,29 @@ class MyClient(discord.Client):
                 midlist = data[6:8]
                 adclist = data[8:10]
                 supplist = data[10:12]
-                df = pd.DataFrame({"RateTotal": totallist,"RateTOP" : toplist , "RateJGL": jgllist, "RateMID": midlist, "RateADC": adclist, "RateSUP": supplist}, index=["NonWin","Win"])
-                colors = sns.color_palette('pastel')[0:5]
-                plt.style.use('classic')
+                lists = {"Total": totallist,"TOP" : toplist , "JGL": jgllist, "MID": midlist, "ADC": adclist, "SUP": supplist}
+
+                colors = ["#EB5757", "#5AC91A"]
+                sns.set_theme(font="serif",font_scale=1.5)
+                explode = [0.2, 0]
+
+                statslist = "Total"
                 lane = message.clean_content.replace(f"@{self.user.name} stats ", '')
                 if lane in lanes:
-                    df.plot.pie(y=f"Rate{lanes[lane]}",colors=colors,autopct='%.0f%%')
-                else:
-                    lane = "general"
-                    df.plot.pie(y="RateTotal",colors=colors,autopct='%.0f%%')
+                    statslist = lanes[lane]
+
+                plt.pie(lists[statslist], labels=[f"NoWin {statslist}", f"Win {statslist}"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
 
                 plt.savefig(f'temp{pid}.png')
-                embed = discord.Embed(title=f"Stats for {message.author.name} in {lane}",color=0x00ff00) #creates embed
+
+                if lane in lanes:
+                    background = Image.open(f'temp{pid}.png')
+                    foreground = Image.open(f"images/{lanes[lane]}.png")
+                    background.paste(foreground, (background.width - foreground.width,0), foreground)
+                    background.save(f'temp{pid}.png')
+
+                plt.clf()
+                embed = discord.Embed(title=f"Stats for {message.author.name} in {statslist}",color=0x00ff00) #creates embed
                 file = discord.File(f'temp{pid}.png', filename="grahp.png")
                 embed.set_image(url="attachment://graph.png")
                 await message.channel.send(file=file, embed=embed)
