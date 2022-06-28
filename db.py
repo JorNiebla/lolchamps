@@ -69,24 +69,23 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 con = psycopg2.connect(DATABASE_URL)
 cur = con.cursor()
 
-cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('champions',))
-results = cur.fetchone()
+cur.execute("""SELECT 
+                EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s),
+                EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s),
+                EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)""", ('champions','profiles','wins',))
+
+results=cur.fetchall()[0]
+print(results)
 if not (results[0]):
-    print(results)
-    print("Se reconstruye champs")
     update_champions_DB(con,cur)
 
-cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('profiles',))
-if not (cur.fetchone()[0]):
-    print("Se reconstruye profiles")
+if not (results[1]):
     cur.execute("""CREATE TABLE profiles (
         PLAYERID VARCHAR(255),
         PRIMARY KEY(PLAYERID));""")
     con.commit()
 
-cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('wins',))
-if not (cur.fetchone()[0]):
-    print("Se reconstruye wins")
+if not (results[2]):
     cur.execute("""CREATE TABLE wins (
         CHAMPID INTEGER,
         PLAYERID VARCHAR(255),
