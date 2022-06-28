@@ -39,6 +39,8 @@ async def win_champ(cur,con,champname,userid,channel):
     cur.execute("SELECT CHAMP, CHAMPID FROM champions")
     champlist = cur.fetchall()
     for champ in champlist:
+        print(champ[0].lower())
+        print(champname.lower())
         if champname.lower() == champ[0].lower():
             champid = champ[1]
             break
@@ -166,7 +168,7 @@ class MyClient(discord.Client):
                 await channel.send("Something went wrong, sorry I couldn't get your stats", delete_after=10) 
         
         elif("win" in message.content):
-            champs = message.clean_content.split("win", 1)[1].replace("'", "''").strip()
+            champs = message.clean_content.split("win", 1)[1].strip()
             if champs=='':
                 await channel.send("You didn't type a champion, please type a valid champion", delete_after=10)
             else:
