@@ -24,16 +24,11 @@ def generate_embed(champ,lane):
 def random_champ(lane,userid,cur):
     cur.execute(f"SELECT CHAMP, ID, SPLASH FROM table_{userid} WHERE {lane} = True AND WIN = False")
     champ = random.choice(cur.fetchall())
-    print(champ)
     return champ
 
 async def win_champ(cur,con,champname,message):
-
-    print(champname)
-
     champid=MAXINT
     cur.execute("SELECT CHAMP, ID FROM table_clean")
-    print("Hago el select")
     champlist = cur.fetchall()
     for champ in champlist:
         if champname.lower() == champ[0].lower():
@@ -48,7 +43,6 @@ async def win_champ(cur,con,champname,message):
                         SET WIN = True 
                         WHERE ID='{champid}'""")
             con.commit()
-            print("Winning")
             await message.channel.send("Congratulations on the win with " + champname, delete_after=10)
         except:
             print(traceback.format_exc())
@@ -125,7 +119,7 @@ class MyClient(discord.Client):
                 if lane in lanes:
                     statslist = lanes[lane]
 
-                plt.pie(lists[statslist], labels=[f"NoWin {statslist}", f"Win {statslist}"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
+                plt.pie(lists[statslist], labels=[f"NoWin", f"Win"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
 
                 plt.savefig(f'temp{pid}.png')
 
@@ -163,7 +157,6 @@ class MyClient(discord.Client):
                     await message.channel.send("I dont know that champion, please type a valid champion (full name and capital letters)", delete_after=10)
                 else:
                     champlist = champs.split(",")
-                    print(champlist)
                     for champname in champlist:
                         await win_champ(cur,con,champname.strip(),message)
 
@@ -184,7 +177,6 @@ class MyClient(discord.Client):
                                     table_clean
                                     )""")
                         con.commit()
-                        print("Created")
                         await message.channel.send("Profile created", delete_after=10)
                     except:
                         print(traceback.format_exc())
