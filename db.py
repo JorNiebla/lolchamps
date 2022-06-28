@@ -80,6 +80,7 @@ if not (results[0]):
 if not (results[1]):
     cur.execute("""CREATE TABLE profiles (
         PLAYERID VARCHAR(255),
+        PUUID VARCHAR(255),
         PRIMARY KEY(PLAYERID));""")
     con.commit()
 

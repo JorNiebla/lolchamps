@@ -9,7 +9,7 @@ multidict
 yarl
 idna
 discord.py==1.7.3
-cassiopeia
+riotwatcher
 psycopg2-binary
 pandas
 matplotlib

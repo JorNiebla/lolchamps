@@ -3,6 +3,7 @@ import discord
 from discord_components import DiscordComponents, Button
 import random
 import psycopg2
+import riotwatcher
 import db
 import os
 import traceback
@@ -10,6 +11,7 @@ import asyncio
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
+from riotwatcher import RiotWatcher, LolWatcher, ApiError
 from PIL import Image
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle' : "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP"}
@@ -87,6 +89,17 @@ class MyClient(discord.Client):
         elif message.author.bot:
             pass
 
+        elif("help" in message.content):
+            embedVar = discord.Embed()
+            embedVar.add_field(name=f"@{self.user.name} help", value="to display this message", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} stats lane", value="Used to display your stats in a certain lane, (lane is optional, it defaults to all lanes)", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} win champ1, champ2...", value="Used to register wins on various champs manually", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} connect RIOTNAME TAGLINE", value="Used to link your profile with a riot account", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} disconnect", value="Used to unlink your profile from your riot", inline=False)
+            examplefile = discord.File(f'images/EXAMPLEINFO.png', filename="example.png")
+            embedVar.set_image(url="attachment://example.png")
+            await channel.send(file=examplefile, embed=embedVar, delete_after=60)
+
         elif("update" in message.content) and (userid == 371076929022984196):
             await channel.send("Updating database...", delete_after=10)
             db.update_champions_DB(con,cur)
@@ -95,34 +108,33 @@ class MyClient(discord.Client):
 
         elif("stats" in message.content):
             try:
-                lane = message.clean_content.replace(f"@{self.user.name} stats ", '')
-                if lane in lanes:
-                    cur.execute(f"""SELECT 
-                                    sum(case when {lanes[lane]} = True AND CHAMPID NOT IN
-                                        (SELECT CHAMPID
-                                        FROM wins
-                                        WHERE PLAYERID = '{userid}') then 1 else 0 end),
-                                    sum(case when {lanes[lane]} = True AND CHAMPID IN
-                                        (SELECT CHAMPID
-                                        FROM wins
-                                        WHERE PLAYERID = '{userid}') then 1 else 0 end)
-                                    FROM champions""")
-                    nowinsandwins = (cur.fetchall()[0])
-                    statsfor = lanes[lane]
-                else:
-                    cur.execute(f"""SELECT 
-                                    sum(case when CHAMPID NOT IN
-                                        (SELECT CHAMPID
-                                        FROM wins
-                                        WHERE PLAYERID = '{userid}') then 1 else 0 end),
-                                    sum(case when CHAMPID IN
-                                        (SELECT CHAMPID
-                                        FROM wins
-                                        WHERE PLAYERID = '{userid}') then 1 else 0 end)
-                                    FROM champions""")
-                    nowinsandwins = (cur.fetchall()[0])
-                    statsfor = "Total"
+                msglanes = message.clean_content.split(f"stats", 1)[1].strip().split()
+                lanecount = 0
+                conditions = "("
+                for lane in msglanes:
+                    if lane in lanes:
+                        lanecount +=1
+                        if lane == msglanes[-1]:
+                            conditions += f" {lanes[lane]} = True"
+                            break
+                        conditions += f" {lanes[lane]} = True OR"
+                conditions += ") AND"
+                if lanecount == 0: 
+                    conditions = ""
+                    msglanes.extend(["top","jg","mid","adc","supp"])
 
+                cur.execute(f"""SELECT 
+                                sum(case when {conditions} CHAMPID NOT IN
+                                    (SELECT CHAMPID
+                                    FROM wins
+                                    WHERE PLAYERID = '{userid}') then 1 else 0 end),
+                                sum(case when {conditions} CHAMPID IN
+                                    (SELECT CHAMPID
+                                    FROM wins
+                                    WHERE PLAYERID = '{userid}') then 1 else 0 end)
+                                FROM champions""")
+                nowinsandwins = (cur.fetchall()[0])
+                
                 colors = ["#EB5757", "#5AC91A"]
                 sns.set_theme(font="serif",font_scale=1.5)
                 explode = [0.2, 0]
@@ -130,18 +142,20 @@ class MyClient(discord.Client):
                 plt.pie(nowinsandwins, labels=[f"NoWin", f"Win"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
                 plt.savefig(f'temp{pid}.png')
                 
-                foreground = Image.open("images/ALL.png")
-                if lane in lanes:
-                    foreground = Image.open(f"images/{lanes[lane]}.png")
-
                 background = Image.open(f'temp{pid}.png')
-                background.paste(foreground, (background.width - foreground.width,0), foreground)
+                posy = 0
+                for lane in msglanes:
+                    if lane in lanes:
+                        foreground = Image.open(f"images/{lanes[lane]}.png")
+                        background.paste(foreground, (background.width - foreground.width,posy), foreground)
+                        posy += foreground.height
+
                 background.save(f'temp{pid}.png')
 
                 plt.clf()
-                embed = discord.Embed(title=f"Stats for {message.author.name} in {statsfor}",color=0x00ff00) #creates embed
+                embed = discord.Embed(title=f"Stats for {message.author.name}",color=0x00ff00) #creates embed
                 piefile = discord.File(f'temp{pid}.png', filename="grahp.png")
-                embed.set_image(url="attachment://graph.png")
+                embed.set_image(url="attachment://grahp.png")
                 await channel.send(file=piefile, embed=embed)
                 os.remove(f'temp{pid}.png')
 
@@ -161,6 +175,39 @@ class MyClient(discord.Client):
                     await win_champ(cur,con,champname.strip(),userid,channel)
 
             await message.delete(delay=10)
+
+        elif("disconnect" in message.content):
+            try:
+                cur.execute(f"""DELETE FROM profiles 
+                                WHERE PUUID = '{userid}')""")
+                con.commit()   
+                await channel.send(f"Account disconnected succesfully!", delete_after=10) 
+            except:
+                print(traceback.format_exc())
+                await channel.send("Something went wrong, sorry I couldn't disconnect with your account", delete_after=10)
+
+            await message.delete(delay=10)
+
+        elif("connect" in message.content):
+            info = message.content.split("connect", 1)[1].strip().rsplit(" ", 1)
+            if len(info) != 2:
+                pass
+            else:
+                gameName = info[0]
+                tagLine = info[1]
+                try:
+                    account = riot_watcher.account.by_riot_id('europe',gameName,tagLine)
+                    puuid = account['puuid']
+                    cur.execute(f"""INSERT INTO profiles (PLAYERID,PUUID)
+                        VALUES('{userid}', '{puuid}')""")
+                    con.commit()
+                    await channel.send(f"Account connected succesfully!", delete_after=10) 
+                except psycopg2.errors.UniqueViolation:
+                    await channel.send(f"You have already have an account connected, if you wish to change it mention me with \"disconnect\"", delete_after=10)            
+                except:
+                    print(traceback.format_exc())
+                    await channel.send("Something went wrong, sorry I couldn't connect with your account", delete_after=10)       
+            await message.delete(delay=10)         
 
         else:
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
@@ -246,7 +293,10 @@ class MyClient(discord.Client):
 
 TOKEN = os.getenv('TOKEN')
 DATABASE_URL = os.getenv('DATABASE_URL')
+RIOT_API_KEY = os.getenv('RIOT_API_KEY')
 
+lol_watcher = LolWatcher(RIOT_API_KEY)
+riot_watcher = RiotWatcher(RIOT_API_KEY)
 intents = discord.Intents(messages=True, guilds=True)
 client = MyClient(intents=intents)
 DiscordComponents(client)
