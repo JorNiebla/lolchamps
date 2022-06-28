@@ -14,7 +14,7 @@ import seaborn as sns
 from riotwatcher import RiotWatcher, LolWatcher, ApiError
 from PIL import Image
 
-lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle' : "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP"}
+lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle': "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP", 'support': "SUP"}
 
 def generate_embed(champ,lane):
     embedVar = discord.Embed(color=0x00ff00)
@@ -91,9 +91,9 @@ class MyClient(discord.Client):
 
         elif("help" in message.content):
             embedVar = discord.Embed()
-            embedVar.add_field(name=f"@{self.user.name} help", value="to display this message", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} help", value="Used to display this message", inline=False)
             embedVar.add_field(name=f"@{self.user.name} stats lane", value="Used to display your stats in a certain lane, (lane is optional, it defaults to all lanes)", inline=False)
-            embedVar.add_field(name=f"@{self.user.name} win champ1, champ2...", value="Used to register wins on various champs manually", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} win champ1, champ2...", value="Used to register wins on several champs manually", inline=False)
             embedVar.add_field(name=f"@{self.user.name} connect RIOTNAME TAGLINE", value="Used to link your profile with a riot account", inline=False)
             embedVar.add_field(name=f"@{self.user.name} disconnect", value="Used to unlink your profile from your riot", inline=False)
             examplefile = discord.File(f'images/EXAMPLEINFO.png', filename="example.png")
@@ -109,16 +109,16 @@ class MyClient(discord.Client):
         elif("stats" in message.content):
             try:
                 msglanes = message.clean_content.split(f"stats", 1)[1].strip().split()
+                
                 lanecount = 0
                 conditions = "("
                 for lane in msglanes:
                     if lane in lanes:
                         lanecount +=1
-                        if lane == msglanes[-1]:
-                            conditions += f" {lanes[lane]} = True"
-                            break
                         conditions += f" {lanes[lane]} = True OR"
+                conditions = "".join(conditions.rsplit("OR", 1))
                 conditions += ") AND"
+
                 if lanecount == 0: 
                     conditions = ""
                     msglanes.extend(["top","jg","mid","adc","supp"])
@@ -139,7 +139,7 @@ class MyClient(discord.Client):
                 sns.set_theme(font="serif",font_scale=1.5)
                 explode = [0.2, 0]
 
-                plt.pie(nowinsandwins, labels=[f"NoWin", f"Win"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
+                plt.pie(nowinsandwins, labels=[f"", f"Win"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
                 plt.savefig(f'temp{pid}.png')
                 
                 background = Image.open(f'temp{pid}.png')
