@@ -98,7 +98,7 @@ class MyClient(discord.Client):
             embedVar.add_field(name=f"@{self.user.name} disconnect", value="Used to unlink your profile from your riot", inline=False)
             examplefile = discord.File(f'images/EXAMPLEINFO.png', filename="example.png")
             embedVar.set_image(url="attachment://example.png")
-            await channel.send(file=examplefile, embed=embedVar, delete_after=60)
+            await channel.send(file=examplefile, embed=embedVar)
 
         elif("update" in message.content) and (userid == 371076929022984196):
             await channel.send("Updating database...", delete_after=10)
@@ -134,7 +134,7 @@ class MyClient(discord.Client):
                                     WHERE PLAYERID = '{userid}') then 1 else 0 end)
                                 FROM champions""")
                 nowinsandwins = (cur.fetchall()[0])
-                
+
                 colors = ["#EB5757", "#5AC91A"]
                 sns.set_theme(font="serif",font_scale=1.5)
                 explode = [0.2, 0]
