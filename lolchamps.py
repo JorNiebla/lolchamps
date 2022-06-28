@@ -1,4 +1,3 @@
-from email.headerregistry import MessageIDHeader
 from xmlrpc.client import MAXINT, MININT
 import discord
 from discord_components import DiscordComponents, Button

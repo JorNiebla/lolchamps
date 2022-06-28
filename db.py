@@ -1,4 +1,3 @@
-from unittest import result
 import psycopg2
 import requests
 import os
