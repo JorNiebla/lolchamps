@@ -67,6 +67,8 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 con = psycopg2.connect(DATABASE_URL)
 cur = con.cursor()
 
-cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", ('table_clean',))
+cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('table_clean',))
 if not (cur.fetchone()[0]):
     create_clean_DB(con,cur)
+
+con.close()

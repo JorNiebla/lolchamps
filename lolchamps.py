@@ -151,19 +151,21 @@ class MyClient(discord.Client):
             if (cur.fetchone()[0]):
                 await message.channel.send("You already have profile", delete_after=10)
             else:
-                try:
-                    cur.execute(f"""CREATE TABLE table_{message.author.id} AS (
-                                SELECT
-                                 * 
-                                FROM
-                                  table_clean
-                                )""")
-                    con.commit()
-                    print("Created")
-                    await message.channel.send("Profile created", delete_after=10)
-                except:
-                    print(traceback.format_exc())
-                    await message.channel.send("Something went wrong, sorry I couldn't create the profile", delete_after=10)
+                cur.execute("""SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'public'""")
+                if (cur.fetchall()[0][0] < 50):
+                    try:
+                        cur.execute(f"""CREATE TABLE table_{message.author.id} AS (
+                                    SELECT
+                                    * 
+                                    FROM
+                                    table_clean
+                                    )""")
+                        con.commit()
+                        print("Created")
+                        await message.channel.send("Profile created", delete_after=10)
+                    except:
+                        print(traceback.format_exc())
+                        await message.channel.send("Something went wrong, sorry I couldn't create the profile", delete_after=10)
         else:
 
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
