@@ -104,11 +104,14 @@ class MyClient(discord.Client):
 
                 plt.savefig(f'temp{pid}.png')
 
+                
+                foreground = Image.open("images/ALL.png")
                 if lane in lanes:
-                    background = Image.open(f'temp{pid}.png')
                     foreground = Image.open(f"images/{lanes[lane]}.png")
-                    background.paste(foreground, (background.width - foreground.width,0), foreground)
-                    background.save(f'temp{pid}.png')
+
+                background = Image.open(f'temp{pid}.png')
+                background.paste(foreground, (background.width - foreground.width,0), foreground)
+                background.save(f'temp{pid}.png')
 
                 plt.clf()
                 embed = discord.Embed(title=f"Stats for {message.author.name} in {statslist}",color=0x00ff00) #creates embed
