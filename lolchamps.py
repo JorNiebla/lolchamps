@@ -55,6 +55,9 @@ class MyClient(discord.Client):
 
         if not botpinged:
             pass
+        
+        elif message.author.bot:
+            pass
 
         elif(message.content == f"<@{self.user.id}> rebuild") and (message.author == 371076929022984196):
             print("rebuilding")
