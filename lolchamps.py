@@ -27,8 +27,32 @@ def random_champ(lane,userid,cur):
     print(champ)
     return champ
 
-def remove_champ(wks, champ):
-   pass
+async def win_champ(cur,con,champname,message):
+
+    print(champname)
+
+    champid=MAXINT
+    cur.execute("SELECT CHAMP, ID FROM table_clean")
+    print("Hago el select")
+    champlist = cur.fetchall()
+    for champ in champlist:
+        if champname.lower() == champ[0].lower():
+            champid = champ[1]
+            break
+
+    if champid == MAXINT:
+        await message.channel.send("I dont know that champion, please type a valid champion (full name and capital letters)", delete_after=10)
+    else:
+        try:
+            cur.execute(f"""UPDATE table_{message.author.id}
+                        SET WIN = True 
+                        WHERE ID='{champid}'""")
+            con.commit()
+            print("Winning")
+            await message.channel.send("Congratulations on the win with " + champname, delete_after=10)
+        except:
+            print(traceback.format_exc())
+            await message.channel.send("Something went wrong, sorry I couldn't register the win", delete_after=10) 
 
 async def printlaner(lane,userid,champmsg,interaction,components,cur):
     champ = random_champ(lanes[lane],userid,cur)
@@ -64,6 +88,7 @@ class MyClient(discord.Client):
             print("rebuilding")
             cur.execute("DROP TABLE clean_table")
             db.create_clean_DB(con,cur)
+            message.delete(delay=10)
 
         elif(f"<@{self.user.id}> stats" in message.content):
             try:
@@ -127,24 +152,22 @@ class MyClient(discord.Client):
                 await message.channel.send("Something went wrong, sorry I couldn't get your stats", delete_after=10) 
         
         elif(f"<@{self.user.id}> win" in message.content):
-            champname = message.clean_content.replace(f"@{self.user.name} win ", '').replace("'", "''")
-            if champname=='': champname="empty"
-            cur.execute(f"SELECT EXISTS(SELECT * FROM table_clean WHERE CHAMP = '{champname}')")
+
+            cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", (f'table_{message.author.id}',))
             if not (cur.fetchone()[0]):
-                await message.channel.send("I dont know that champion, please type a valid champion (full name and capital letters)", delete_after=10)
+                await message.channel.send("You don't have a profile, create one by mentioning me and typing 'new'", delete_after=10)
+                
             else:
-                try:
-                    cur.execute(f"""UPDATE table_{message.author.id}
-                                SET WIN = True 
-                                WHERE CHAMP='{champname}'""")
-                    con.commit()
-                    print("Winning")
-                    await message.channel.send("Congratulations on the win with " + champname, delete_after=10)
-                except psycopg2.errors.UndefinedTable:
-                    await message.channel.send("You don't have a profile, create one by mentioning me and typing 'new'", delete_after=10)
-                except:
-                    print(traceback.format_exc())
-                    await message.channel.send("Something went wrong, sorry I couldn't register the win", delete_after=10) 
+                champs = message.clean_content.replace(f"@{self.user.name} win ", '').replace("'", "''")
+                if champs=='':
+                    await message.channel.send("I dont know that champion, please type a valid champion (full name and capital letters)", delete_after=10)
+                else:
+                    champlist = champs.split(",")
+                    print(champlist)
+                    for champname in champlist:
+                        await win_champ(cur,con,champname.strip(),message)
+
+            await message.delete(delay=10)
 
         elif(f"<@{self.user.id}> new" in message.content):
             cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", (f'table_{message.author.id}',))
@@ -166,6 +189,7 @@ class MyClient(discord.Client):
                     except:
                         print(traceback.format_exc())
                         await message.channel.send("Something went wrong, sorry I couldn't create the profile", delete_after=10)
+            await message.delete(delay=10)
         else:
 
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
@@ -255,11 +279,7 @@ class MyClient(discord.Client):
                             await interaction.send("Cancelled (Remember to remove this message)")
                             continue
                         case 11: #Confirm win
-                            cur.execute(f"""UPDATE table_{userid}
-                                SET WIN = True 
-                                WHERE ID='{champ[1]}'""")
-                            con.commit()
-                            await interaction.send(f"Congratulations on the win with {champ[0]}! I'll get you another champ")
+                            await win_champ(cur,con,champ[0],message)
                         case 12: #Cancel win
                             continue
                     champ = random_champ(lanes[lane],userid,cur)
