@@ -9,6 +9,8 @@ import db
 import os
 import traceback
 import asyncio
+import pandas
+import matplotlib
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle' : "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP"}
 
@@ -42,6 +44,7 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         con = psycopg2.connect(DATABASE_URL)
         cur = con.cursor()
+        pid = random.randint(MININT,MAXINT)
 
         botpinged = False
         for role in message.role_mentions:
@@ -60,7 +63,50 @@ class MyClient(discord.Client):
             db.create_clean_DB(con,cur)
 
         elif(f"<@{self.user.id}> stats" in message.content):
-            pass
+            try:
+                cur.execute(f"""SELECT 
+                    sum(case when WIN = False then 1 else 0 end) AS total,
+                    sum(case when WIN = True then 1 else 0 end) AS totalwinned,
+                    sum(case when TOP = True and WIN = False then 1 else 0 end) AS totaltop,
+                    sum(case when TOP = True and WIN = True then 1 else 0 end) AS totalwinnedtop,
+                    sum(case when JGL = True and WIN = False then 1 else 0 end) AS totaljgl,
+                    sum(case when JGL = True and WIN = True then 1 else 0 end) AS totalwinnedjgl,
+                    sum(case when MID = True and WIN = False then 1 else 0 end) AS totalmid,
+                    sum(case when MID = True and WIN = True then 1 else 0 end) AS totalwinnedmid,
+                    sum(case when ADC = True and WIN = False then 1 else 0 end) AS totaladc,
+                    sum(case when ADC = True and WIN = True then 1 else 0 end) AS totalwinnedadc,
+                    sum(case when SUP = True and WIN = False then 1 else 0 end) AS totalsupp,
+                    sum(case when SUP = True and WIN = True then 1 else 0 end) AS totalwinnedsupp
+                FROM table_{message.author.id}""")
+
+                data = list(cur.fetchall()[0])
+                totallist = data[:2]
+                toplist = data[2:4]
+                jgllist = data[4:6]
+                midlist = data[6:8]
+                adclist = data[8:10]
+                supplist = data[10:12]
+                df = pandas.DataFrame({"RateTotal": totallist,"RateTOP" : toplist , "RateJGL": jgllist, "RateMID": midlist, "RateADC": adclist, "RateSUP": supplist}, index=["NonWin","Win"])
+
+                lane = message.clean_content.replace(f"@{self.user.name} stats ", '')
+                if lane in lanes:
+                    df.plot.pie(y=f"Rate{lanes[lane]}",autopct='%.0f%%')
+                else:
+                    lane = "general"
+                    df.plot.pie(y="RateTotal",autopct='%.0f%%')
+
+                matplotlib.pyplot.savefig(f'temp{pid}.png')
+                embed = discord.Embed(title=f"Stats for {message.author.name} in {lane}",color=0x00ff00) #creates embed
+                file = discord.File(f'temp{pid}.png', filename="grahp.png")
+                embed.set_image(url="attachment://graph.png")
+                await message.channel.send(file=file, embed=embed)
+                os.remove(f'temp{pid}.png')
+
+            except psycopg2.errors.UndefinedTable:
+                await message.channel.send("You don't have a profile, create one by mentioning me and typing 'new'", delete_after=10)
+            except:
+                print(traceback.format_exc())
+                await message.channel.send("Something went wrong, sorry I couldn't get your stats", delete_after=10) 
         
         elif(f"<@{self.user.id}> win" in message.content):
             champname = message.clean_content.replace(f"@{self.user.name} win ", '').replace("'", "''")
@@ -101,7 +147,6 @@ class MyClient(discord.Client):
                     print(traceback.format_exc())
                     await message.channel.send("Something went wrong, sorry I couldn't create the profile", delete_after=10)
         else:
-            pid = random.randint(MININT,MAXINT)
 
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
             Button(label="Re-Roll", style="1", emoji = "🔁", custom_id=f"roll{pid}"), Button(label="Delete", style="4", emoji = self.get_emoji(id=987331408093642822), custom_id=f"del{pid}"),

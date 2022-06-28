@@ -73,11 +73,3 @@ cur = con.cursor()
 cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", ('table_clean',))
 if not (cur.fetchone()[0]):
     create_clean_DB(con,cur)
-
-cur.execute("SELECT * FROM table_clean")
-df = pandas.DataFrame(cur.fetchall(),columns=["Name","Alias","ID","TOP", "JUNGLE","MID","ADC","SUPP", "WIN", "Splash"])
-with pandas.option_context('display.max_rows', None):  # more options can be specified also
-    print(df)
-# plot = df.groupby(['WIN']).plot(kind='pie', y='TOP',include_bool=True)
-
-# matplotlib.pyplot.show()
