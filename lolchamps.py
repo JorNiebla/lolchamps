@@ -1,3 +1,4 @@
+from email.headerregistry import MessageIDHeader
 from xmlrpc.client import MAXINT, MININT
 import discord
 from discord_components import DiscordComponents, Button
@@ -22,13 +23,19 @@ def generate_embed(champ,lane):
     return embedVar
 
 def random_champ(lane,userid,cur):
-    cur.execute(f"SELECT CHAMP, ID, SPLASH FROM table_{userid} WHERE {lane} = True AND WIN = False")
+    cur.execute(f"""SELECT CHAMP, CHAMPID, SPLASH 
+                    FROM champions 
+                    WHERE {lane} = True AND CHAMPID NOT IN
+                        (SELECT CHAMPID
+                         FROM wins
+                         WHERE PLAYERID = '{userid}'
+                        )""")
     champ = random.choice(cur.fetchall())
     return champ
 
 async def win_champ(cur,con,champname,message):
     champid=MAXINT
-    cur.execute("SELECT CHAMP, ID FROM table_clean")
+    cur.execute("SELECT CHAMP, CHAMPID FROM champions")
     champlist = cur.fetchall()
     for champ in champlist:
         if champname.lower() == champ[0].lower():
@@ -36,23 +43,22 @@ async def win_champ(cur,con,champname,message):
             break
 
     if champid == MAXINT:
-        await message.channel.send("I dont know that champion, please type a valid champion (full name and capital letters)", delete_after=10)
+        await message.channel.send("I dont know that champion, please type a valid champion", delete_after=10)
     else:
         try:
-            cur.execute(f"""UPDATE table_{message.author.id}
-                        SET WIN = True 
-                        WHERE ID='{champid}'""")
+            cur.execute(f"""INSERT INTO wins (CHAMPID, PLAYERID)
+                        VALUES({champid}, {message.author.id})""")
             con.commit()
-            await message.channel.send("Congratulations on the win with " + champname, delete_after=10)
+            await message.channel.send(f"Congratulations on the win with {champname}", delete_after=10)
         except:
             print(traceback.format_exc())
-            await message.channel.send("Something went wrong, sorry I couldn't register the win", delete_after=10) 
+            await message.channel.send(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=10) 
 
 async def printlaner(lane,userid,champmsg,interaction,components,cur):
     champ = random_champ(lanes[lane],userid,cur)
     embedVar = generate_embed(champ, lane)
     await champmsg.edit('',embed=embedVar, **components)
-    await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
+    await interaction.send(content=f"<a:kirby:759485375718359081>Re-Roll {lane}<a:kirby:759485375718359081>",ephemeral=False, delete_after=0.1)
     
 class MyClient(discord.Client):
 
@@ -63,6 +69,7 @@ class MyClient(discord.Client):
         con = psycopg2.connect(DATABASE_URL)
         cur = con.cursor()
         pid = random.randint(MININT,MAXINT)
+        userid = message.author.id
 
         botpinged = False
         for role in message.role_mentions:
@@ -78,52 +85,59 @@ class MyClient(discord.Client):
         elif message.author.bot:
             pass
 
-        elif(f"<@{self.user.id}> rebuild" in message.content) and (message.author.id == 371076929022984196):
-            print("rebuilding")
-            cur.execute("DROP TABLE table_clean")
-            db.create_clean_DB(con,cur)
-            await message.channel.send("Database rebuilt!", delete_after=10)
+        elif("update" in message.content) and (userid == 371076929022984196):
+            await message.channel.send("Updating database...", delete_after=10)
+            db.update_champions_DB(con,cur)
+            await message.channel.send("Database updated!", delete_after=10)
             await message.delete(delay=10)
 
-        elif(f"<@{self.user.id}> stats" in message.content):
+        elif(f"stats" in message.content):
             try:
-                cur.execute(f"""SELECT 
-                    sum(case when WIN = False then 1 else 0 end) AS total,
-                    sum(case when WIN = True then 1 else 0 end) AS totalwinned,
-                    sum(case when TOP = True and WIN = False then 1 else 0 end) AS totaltop,
-                    sum(case when TOP = True and WIN = True then 1 else 0 end) AS totalwinnedtop,
-                    sum(case when JGL = True and WIN = False then 1 else 0 end) AS totaljgl,
-                    sum(case when JGL = True and WIN = True then 1 else 0 end) AS totalwinnedjgl,
-                    sum(case when MID = True and WIN = False then 1 else 0 end) AS totalmid,
-                    sum(case when MID = True and WIN = True then 1 else 0 end) AS totalwinnedmid,
-                    sum(case when ADC = True and WIN = False then 1 else 0 end) AS totaladc,
-                    sum(case when ADC = True and WIN = True then 1 else 0 end) AS totalwinnedadc,
-                    sum(case when SUP = True and WIN = False then 1 else 0 end) AS totalsupp,
-                    sum(case when SUP = True and WIN = True then 1 else 0 end) AS totalwinnedsupp
-                FROM table_{message.author.id}""")
-
-                data = list(cur.fetchall()[0])
-                totallist = data[:2]
-                toplist = data[2:4]
-                jgllist = data[4:6]
-                midlist = data[6:8]
-                adclist = data[8:10]
-                supplist = data[10:12]
-                lists = {"Total": totallist,"TOP" : toplist , "JGL": jgllist, "MID": midlist, "ADC": adclist, "SUP": supplist}
+                nowinsandwins = []
+                lane = message.clean_content.replace(f"@{self.user.name} stats ", '')
+                if lane in lanes:
+                    cur.execute(f"""SELECT COUNT(*) 
+                                    FROM champions 
+                                    WHERE {lanes[lane]} = True AND CHAMPID NOT IN
+                                        (SELECT CHAMPID
+                                        FROM wins
+                                        WHERE PLAYERID = '{userid}'
+                                        )""")
+                    nowinsandwins.append(cur.fetchall()[0][0])
+                    cur.execute(f"""SELECT COUNT(*)
+                                    FROM champions 
+                                    WHERE {lanes[lane]} = True AND CHAMPID IN
+                                        (SELECT CHAMPID
+                                        FROM wins
+                                        WHERE PLAYERID = '{userid}'
+                                        )""")
+                    nowinsandwins.append(cur.fetchall()[0][0])
+                    statsfor = lanes[lane]
+                else:
+                    cur.execute(f"""SELECT COUNT(*) 
+                                    FROM champions 
+                                    WHERE CHAMPID NOT IN
+                                        (SELECT CHAMPID
+                                        FROM wins
+                                        WHERE PLAYERID = '{userid}'
+                                        )""")
+                    nowinsandwins.append(cur.fetchall()[0][0])
+                    cur.execute(f"""SELECT COUNT(*)
+                                    FROM champions 
+                                    WHERE CHAMPID IN
+                                        (SELECT CHAMPID
+                                        FROM wins
+                                        WHERE PLAYERID = '{userid}'
+                                        )""")
+                    nowinsandwins.append(cur.fetchall()[0][0])
+                    statsfor = "Total"
 
                 colors = ["#EB5757", "#5AC91A"]
                 sns.set_theme(font="serif",font_scale=1.5)
                 explode = [0.2, 0]
 
-                statslist = "Total"
-                lane = message.clean_content.replace(f"@{self.user.name} stats ", '')
-                if lane in lanes:
-                    statslist = lanes[lane]
-
-                plt.pie(lists[statslist], labels=[f"NoWin", f"Win"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
-
+                plt.pie(nowinsandwins, labels=[f"NoWin", f"Win"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
                 plt.savefig(f'temp{pid}.png')
-
                 
                 foreground = Image.open("images/ALL.png")
                 if lane in lanes:
@@ -134,10 +148,10 @@ class MyClient(discord.Client):
                 background.save(f'temp{pid}.png')
 
                 plt.clf()
-                embed = discord.Embed(title=f"Stats for {message.author.name} in {statslist}",color=0x00ff00) #creates embed
-                file = discord.File(f'temp{pid}.png', filename="grahp.png")
+                embed = discord.Embed(title=f"Stats for {message.author.name} in {statsfor}",color=0x00ff00) #creates embed
+                piefile = discord.File(f'temp{pid}.png', filename="grahp.png")
                 embed.set_image(url="attachment://graph.png")
-                await message.channel.send(file=file, embed=embed)
+                await message.channel.send(file=piefile, embed=embed)
                 os.remove(f'temp{pid}.png')
 
             except psycopg2.errors.UndefinedTable:
@@ -146,45 +160,18 @@ class MyClient(discord.Client):
                 print(traceback.format_exc())
                 await message.channel.send("Something went wrong, sorry I couldn't get your stats", delete_after=10) 
         
-        elif(f"<@{self.user.id}> win" in message.content):
-
-            cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", (f'table_{message.author.id}',))
-            if not (cur.fetchone()[0]):
-                await message.channel.send("You don't have a profile, create one by mentioning me and typing 'new'", delete_after=10)
-                
+        elif(f"win" in message.content):       
+            champs = message.clean_content.split("win", 1)[1].replace("'", "''").strip()
+            if champs=='':
+                await message.channel.send("You didn't type a champion, please type a valid champion", delete_after=10)
             else:
-                champs = message.clean_content.replace(f"@{self.user.name} win ", '').replace("'", "''")
-                if champs=='':
-                    await message.channel.send("I dont know that champion, please type a valid champion (full name and capital letters)", delete_after=10)
-                else:
-                    champlist = champs.split(",")
-                    for champname in champlist:
-                        await win_champ(cur,con,champname.strip(),message)
+                champlist = champs.split(",")
+                for champname in champlist:
+                    await win_champ(cur,con,champname.strip(),message)
 
             await message.delete(delay=10)
 
-        elif(f"<@{self.user.id}> new" in message.content):
-            cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", (f'table_{message.author.id}',))
-            if (cur.fetchone()[0]):
-                await message.channel.send("You already have profile", delete_after=10)
-            else:
-                cur.execute("""SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'public'""")
-                if (cur.fetchall()[0][0] < 50):
-                    try:
-                        cur.execute(f"""CREATE TABLE table_{message.author.id} AS (
-                                    SELECT
-                                    * 
-                                    FROM
-                                    table_clean
-                                    )""")
-                        con.commit()
-                        await message.channel.send("Profile created", delete_after=10)
-                    except:
-                        print(traceback.format_exc())
-                        await message.channel.send("Something went wrong, sorry I couldn't create the profile", delete_after=10)
-            await message.delete(delay=10)
         else:
-
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
             Button(label="Re-Roll", style="1", emoji = "🔁", custom_id=f"roll{pid}"), Button(label="Delete", style="4", emoji = self.get_emoji(id=987331408093642822), custom_id=f"del{pid}"),
             Button(label="Lanes", style="2", emoji =self.get_emoji(id=987173438907088966) , custom_id=f"lanes{pid}")]]}
@@ -195,17 +182,9 @@ class MyClient(discord.Client):
 
             lane = message.clean_content.replace(f"@{self.user.name} ", '').lower()
 
-            buttons = {f"roll{pid}":0, f"win{pid}":1, f"del{pid}":2, f"lanes{pid}":3,f"top{pid}":4,f"jg{pid}":5,f"mid{pid}":6,f"adc{pid}":7,f"supp{pid}":8,f"yescreate{pid}":9,f"nocreate{pid}":10,f"yeswin{pid}":11,f"nowin{pid}":12}
+            buttons = {f"roll{pid}":0, f"win{pid}":1, f"del{pid}":2, f"lanes{pid}":3,f"top{pid}":4,f"jg{pid}":5,f"mid{pid}":6,f"adc{pid}":7,f"supp{pid}":8,f"yeswin{pid}":9,f"nowin{pid}":10}
 
             lanembed = discord.Embed(color=0x00ff00).set_image(url="https://cdn.discordapp.com/attachments/518907821081755672/987335003371364452/unknown.png")
-
-            cur.execute("SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=%s)", (f'table_{message.author.id}',))
-            if not (cur.fetchone()[0]): #Check if the user has a table created
-                knownuser = False
-                userid = "clean"
-            else:
-                knownuser = True
-                userid = str(message.author.id)
 
             if lane in lanes:
                 champ = random_champ(lanes[lane],userid,cur)
@@ -229,14 +208,10 @@ class MyClient(discord.Client):
                         case 1: #Button for selecting a win
                             if interaction.user != message.author:
                                 await interaction.send("This is not your profile to change!")
-                            if knownuser:
+                            else:
                                 await interaction.send("Are you sure you want to register the win?",
                                 components=[[Button(label="Yes", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"yeswin{pid}"),
                                 Button(label="No", style="4", emoji = self.get_emoji(id=987155911766335520), custom_id=f"nowin{pid}")]])
-                            else:
-                                await interaction.send("You don't have a profile, do you want to create one?", 
-                                components=[[Button(label="Yes", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"yescreate{pid}"),
-                                Button(label="No", style="4", emoji = self.get_emoji(id=987155911766335520), custom_id=f"nocreate{pid}")]])
                             continue
                         case 2: #Button for deleting the messages
                             await champmsg.delete()
@@ -244,7 +219,7 @@ class MyClient(discord.Client):
                             break
                         case 3: #Button for selecting lanes
                             await champmsg.edit('What lane do you want to see?', embed=lanembed, components=[lanebuttons])
-                            await interaction.send(content="<a:kirby:759485375718359081>Lineas<a:kirby:759485375718359081>",ephemeral=False, delete_after=1)
+                            await interaction.send(content="<a:kirby:759485375718359081>Lineas<a:kirby:759485375718359081>",ephemeral=False, delete_after=0.1)
                             continue
                         case 4: #Button for selecting top
                             lane = "top"
@@ -256,24 +231,9 @@ class MyClient(discord.Client):
                             lane = "adc"
                         case 8: #Button for selecting support
                             lane = "supp"
-                        case 9: #Button for creating a table for the user
-                            cur.execute(f"""CREATE TABLE table_{interaction.user.id} AS (
-                                SELECT
-                                 * 
-                                 FROM
-                                  table_clean
-                                )""")
-                            con.commit()
-                            await interaction.send("Created (Remember to remove this message)")
-                            knownuser = True
-                            userid = str(message.author.id)
-                            continue
-                        case 10: #Button for not creating a table for the user
-                            await interaction.send("Cancelled (Remember to remove this message)")
-                            continue
-                        case 11: #Confirm win
+                        case 9: #Confirm win
                             await win_champ(cur,con,champ[0],message)
-                        case 12: #Cancel win
+                        case 10: #Cancel win
                             continue
                     champ = random_champ(lanes[lane],userid,cur)
                     embedVar = generate_embed(champ, lane)

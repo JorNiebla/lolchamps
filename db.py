@@ -1,3 +1,4 @@
+from unittest import result
 import psycopg2
 import requests
 import os
@@ -33,30 +34,31 @@ def is_played(champid,lane):
         rates = json.load(data)["data"]
         return rates[str(champid)][lane]["playRate"] > 0
 
-def create_clean_DB(con,cur):
+def update_champions_DB(con,cur):
     dump_data()
     championsjson = requests.get('http://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json').json()
 
-    cur.execute("""CREATE TABLE table_clean (
+    cur.execute("DROP TABLE IF EXISTS champions")
+
+    cur.execute("""CREATE TABLE champions (
     CHAMP VARCHAR(255),
     ALIAS VARCHAR(255),
-    ID INTEGER, 
+    CHAMPID INTEGER, 
     TOP BOOLEAN, 
     JGL BOOLEAN, 
     MID BOOLEAN, 
     ADC BOOLEAN, 
     SUP BOOLEAN,
-    WIN BOOLEAN,
     SPLASH VARCHAR(255),
-    PRIMARY KEY(ID));""")
+    PRIMARY KEY(CHAMPID));""")
 
     for champ in championsjson.values():
         champname=champ["name"]
         champalias=champ["key"]
         champid=champ["id"]
         champsplash=f'https://cdn.communitydragon.org/latest/champion/{champid}/splash-art'
-        aquery = "INSERT INTO table_clean(CHAMP,ALIAS,ID,TOP,JGL,MID,ADC,SUP,WIN,SPLASH) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-        data = (champname,champalias,champid,is_played(champid,"TOP"),is_played(champid,"JUNGLE"),is_played(champid,"MIDDLE"),is_played(champid,"BOTTOM"),is_played(champid,"UTILITY"),False,champsplash,)
+        aquery = "INSERT INTO champions(CHAMP,ALIAS,CHAMPID,TOP,JGL,MID,ADC,SUP,SPLASH) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        data = (champname,champalias,champid,is_played(champid,"TOP"),is_played(champid,"JUNGLE"),is_played(champid,"MIDDLE"),is_played(champid,"BOTTOM"),is_played(champid,"UTILITY"),champsplash,)
         cur.execute(aquery,data)
     con.commit()
 
@@ -67,8 +69,28 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 con = psycopg2.connect(DATABASE_URL)
 cur = con.cursor()
 
-cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('table_clean',))
+cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('champions',))
+results = cur.fetchone()
+if not (results[0]):
+    print(results)
+    print("Se reconstruye champs")
+    update_champions_DB(con,cur)
+
+cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('profiles',))
 if not (cur.fetchone()[0]):
-    create_clean_DB(con,cur)
+    print("Se reconstruye profiles")
+    cur.execute("""CREATE TABLE profiles (
+        PLAYERID VARCHAR(255),
+        PRIMARY KEY(PLAYERID));""")
+    con.commit()
+
+cur.execute("SELECT EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s)", ('wins',))
+if not (cur.fetchone()[0]):
+    print("Se reconstruye wins")
+    cur.execute("""CREATE TABLE wins (
+        CHAMPID INTEGER,
+        PLAYERID VARCHAR(255),
+        PRIMARY KEY(PLAYERID,CHAMPID));""")
+    con.commit()
 
 con.close()
