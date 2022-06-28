@@ -1,4 +1,3 @@
-from turtle import back
 from xmlrpc.client import MAXINT, MININT
 import discord
 from discord_components import DiscordComponents, Button
@@ -8,11 +7,9 @@ import db
 import os
 import traceback
 import asyncio
-import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
-import requests
 from PIL import Image
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle' : "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP"}
