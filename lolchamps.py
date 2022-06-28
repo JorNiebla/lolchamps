@@ -2,15 +2,14 @@ from xmlrpc.client import MAXINT, MININT
 import discord
 from discord_components import DiscordComponents, Button
 import random
-import string
-import cassiopeia as cass
 import psycopg2
 import db
 import os
 import traceback
 import asyncio
-import pandas
-import matplotlib
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle' : "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP"}
 
@@ -86,16 +85,17 @@ class MyClient(discord.Client):
                 midlist = data[6:8]
                 adclist = data[8:10]
                 supplist = data[10:12]
-                df = pandas.DataFrame({"RateTotal": totallist,"RateTOP" : toplist , "RateJGL": jgllist, "RateMID": midlist, "RateADC": adclist, "RateSUP": supplist}, index=["NonWin","Win"])
-
+                df = pd.DataFrame({"RateTotal": totallist,"RateTOP" : toplist , "RateJGL": jgllist, "RateMID": midlist, "RateADC": adclist, "RateSUP": supplist}, index=["NonWin","Win"])
+                colors = sns.color_palette('pastel')[0:5]
+                plt.style.use('classic')
                 lane = message.clean_content.replace(f"@{self.user.name} stats ", '')
                 if lane in lanes:
-                    df.plot.pie(y=f"Rate{lanes[lane]}",autopct='%.0f%%')
+                    df.plot.pie(y=f"Rate{lanes[lane]}",colors=colors,autopct='%.0f%%')
                 else:
                     lane = "general"
-                    df.plot.pie(y="RateTotal",autopct='%.0f%%')
+                    df.plot.pie(y="RateTotal",colors=colors,autopct='%.0f%%')
 
-                matplotlib.pyplot.savefig(f'temp{pid}.png')
+                plt.savefig(f'temp{pid}.png')
                 embed = discord.Embed(title=f"Stats for {message.author.name} in {lane}",color=0x00ff00) #creates embed
                 file = discord.File(f'temp{pid}.png', filename="grahp.png")
                 embed.set_image(url="attachment://graph.png")

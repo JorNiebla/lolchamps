@@ -1,10 +1,7 @@
-from xml.etree.ElementInclude import include
 import psycopg2
 import requests
 import os
 import pathlib
-import pandas
-import matplotlib
 import json
 import re
 

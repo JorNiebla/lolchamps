@@ -13,3 +13,6 @@ cassiopeia
 psycopg2-binary
 pandas
 matplotlib
+seaborn
+scipy
+numpy
