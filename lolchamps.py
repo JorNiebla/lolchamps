@@ -78,11 +78,12 @@ class MyClient(discord.Client):
         elif message.author.bot:
             pass
 
-        elif(message.content == f"<@{self.user.id}> rebuild") and (message.author == 371076929022984196):
+        elif(f"<@{self.user.id}> rebuild" in message.content) and (message.author.id == 371076929022984196):
             print("rebuilding")
-            cur.execute("DROP TABLE clean_table")
+            cur.execute("DROP TABLE table_clean")
             db.create_clean_DB(con,cur)
-            message.delete(delay=10)
+            await message.channel.send("Database rebuilt!", delete_after=10)
+            await message.delete(delay=10)
 
         elif(f"<@{self.user.id}> stats" in message.content):
             try:

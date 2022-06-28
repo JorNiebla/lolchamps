@@ -54,7 +54,7 @@ def create_clean_DB(con,cur):
         champname=champ["name"]
         champalias=champ["key"]
         champid=champ["id"]
-        champsplash=f'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champalias}_0.jpg'
+        champsplash=f'https://cdn.communitydragon.org/latest/champion/{champid}/splash-art'
         aquery = "INSERT INTO table_clean(CHAMP,ALIAS,ID,TOP,JGL,MID,ADC,SUP,WIN,SPLASH) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
         data = (champname,champalias,champid,is_played(champid,"TOP"),is_played(champid,"JUNGLE"),is_played(champid,"MIDDLE"),is_played(champid,"BOTTOM"),is_played(champid,"UTILITY"),False,champsplash,)
         cur.execute(aquery,data)
