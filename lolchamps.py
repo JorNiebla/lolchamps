@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
 from riotwatcher import RiotWatcher, LolWatcher, ApiError
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL", 'jungler': "JGL", 'mid': "MID", 'middle': "MID", 'adc': "ADC", 'bot': "ADC", 'supp': "SUP", 'sup': "SUP", 'support': "SUP"}
 
@@ -112,18 +112,19 @@ class MyClient(discord.Client):
             try:
                 msglanes = message.clean_content.split(f"stats", 1)[1].strip().split()
                 
-                lanecount = 0
+                laneflags = {"TOP":False,"JGL":False,"MID":False,"ADC":False,"SUP":False}
                 conditions = "("
                 for lane in msglanes:
                     if lane in lanes:
-                        lanecount +=1
+                        laneflags[lanes[lane]] = True
                         conditions += f" {lanes[lane]} = True OR"
                 conditions = "".join(conditions.rsplit("OR", 1))
                 conditions += ") AND"
 
-                if lanecount == 0: 
+                if not any(laneflags.values()): 
                     conditions = ""
-                    msglanes.extend(["top","jg","mid","adc","supp"])
+                    for lane in laneflags:
+                        laneflags[lane] =  True
 
                 cur.execute(f"""SELECT 
                                 sum(case when {conditions} CHAMPID NOT IN
@@ -141,17 +142,23 @@ class MyClient(discord.Client):
                 sns.set_theme(font="serif",font_scale=1.5)
                 explode = [0.2, 0]
 
-                plt.pie(nowinsandwins, labels=[f"", f"Win"],explode=explode,colors=colors,autopct='%.0f%%',rotatelabels='true')
+                plt.pie(nowinsandwins, labels=[f"", f"Wins"],explode=explode,colors=colors,autopct='%.0f%%')
                 plt.savefig(f'temp{pid}.png')
                 
                 background = Image.open(f'temp{pid}.png')
-                posy = 0
-                for lane in msglanes:
-                    if lane in lanes:
-                        foreground = Image.open(f"images/{lanes[lane]}.png")
-                        background.paste(foreground, (background.width - foreground.width,posy), foreground)
-                        posy += foreground.height
+                posyicon = 0
+                font = ImageFont.FreeTypeFont("fonts/Objectivity-Medium.otf",20)
+                textlanes = ""
+                for lane in laneflags.items():
+                    if lane[1] == True:
+                        foreground = Image.open(f"images/{lane[0]}.png")
+                        textlanes += f"{lane[0]} "
+                    else:
+                        foreground = Image.open(f"images/{lane[0]}.png").convert("L")
+                    background.paste(foreground, (background.width - foreground.width,posyicon), foreground)
+                    posyicon += foreground.height
 
+                ImageDraw.Draw(background).text((5,background.height - 30),f"Champion count for {textlanes}{nowinsandwins[1]}/{nowinsandwins[0]+nowinsandwins[1]}",fill=(0,0,0),font=font)
                 background.save(f'temp{pid}.png')
 
                 plt.clf()
@@ -181,7 +188,7 @@ class MyClient(discord.Client):
         elif("disconnect" in message.content):
             try:
                 cur.execute(f"""DELETE FROM profiles 
-                                WHERE PUUID = '{userid}')""")
+                                WHERE PLAYERID = '{userid}'""")
                 con.commit()   
                 await channel.send(f"Account disconnected succesfully!", delete_after=10) 
             except:
@@ -192,24 +199,44 @@ class MyClient(discord.Client):
 
         elif("connect" in message.content):
             info = message.content.split("connect", 1)[1].strip().rsplit(" ", 1)
+            regionalias = {"euw":"euw1","na":"na1","br":"br1","eun":"eun1","jp":"jp1","kr":"kr","lan":"la1","las":"la2","oc":"oc1","ru":"ru","tr":"tr1"}
             if len(info) != 2:
                 pass
             else:
                 gameName = info[0]
-                tagLine = info[1]
+                region = info[1].lower()
                 try:
-                    account = riot_watcher.account.by_riot_id('europe',gameName,tagLine)
-                    puuid = account['puuid']
+                    summoner = lol_watcher.summoner.by_name(f"{regionalias[region]}",gameName)
+                    puuid = summoner['puuid']
                     cur.execute(f"""INSERT INTO profiles (PLAYERID,PUUID)
                         VALUES('{userid}', '{puuid}')""")
                     con.commit()
-                    await channel.send(f"Account connected succesfully!", delete_after=10) 
+                    
+                    await channel.send(f"Account connected succesfully!", delete_after=10)
                 except psycopg2.errors.UniqueViolation:
                     await channel.send(f"You have already have an account connected, if you wish to change it mention me with \"disconnect\"", delete_after=10)            
                 except:
                     print(traceback.format_exc())
                     await channel.send("Something went wrong, sorry I couldn't connect with your account", delete_after=10)       
             await message.delete(delay=10)         
+
+        # elif("load" in message.content):
+        #     def function(json_object, id):
+        #         for dictio in json_object:
+        #             if dictio['challengeId'] == id:
+        #                 return dictio
+        #     try:
+        #         cur.execute(f"""SELECT PUUID 
+        #                 FROM profiles
+        #                 WHERE PLAYERID = '{userid}'""")
+        #         puuid = cur.fetchone()[0]
+        #         allchallengedata = lol_watcher.challenges.by_puuid('euw1',puuid=puuid)["challenges"]
+        #         # print(allchallengedata)
+        #         challengedata = function(allchallengedata,401106)
+        #         print(challengedata)
+        #     except:
+        #         print(traceback.format_exc())
+        #         pass
 
         else:
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 
