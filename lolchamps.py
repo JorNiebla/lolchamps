@@ -1,7 +1,9 @@
+from time import sleep
 from xmlrpc.client import MAXINT, MININT
 import discord
 from discord_components import DiscordComponents, Button
 import random
+from numpy import mat
 import psycopg2
 import riotwatcher
 import db
@@ -36,13 +38,14 @@ def random_champ(lane,userid,cur):
 
 async def win_champ(cur,con,champname,userid,channel):
     champid=MAXINT
-    cur.execute("SELECT CHAMP, CHAMPID FROM champions")
+    cur.execute("SELECT CHAMP, ALIAS, CHAMPID FROM champions")
     champlist = cur.fetchall()
     for champ in champlist:
-        print(champ[0].lower())
-        print(champname.lower())
         if champname.lower() == champ[0].lower():
-            champid = champ[1]
+            champid = champ[2]
+            break
+        if champname.lower() == champ[1].lower():
+            champid = champ[2]
             break
 
     if champid == MAXINT:
@@ -54,10 +57,11 @@ async def win_champ(cur,con,champname,userid,channel):
             con.commit()
             await channel.send(f"Congratulations on the win with {champname}", delete_after=10)
         except psycopg2.errors.UniqueViolation:
-            await channel.send(f"You have already won with {champname}, try another champ", delete_after=10) 
+            #await channel.send(f"You have already won with {champname}, try another champ", delete_after=5)
+            con.rollback()
         except:
             print(traceback.format_exc())
-            await channel.send(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=10) 
+            await channel.send(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=5) 
 
 async def printlaner(lane,userid,champmsg,interaction,components,cur):
     champ = random_champ(lanes[lane],userid,cur)
@@ -92,14 +96,15 @@ class MyClient(discord.Client):
             pass
 
         elif("help" in message.content):
-            embedVar = discord.Embed()
-            embedVar.add_field(name=f"@{self.user.name} help", value="Used to display this message", inline=False)
-            embedVar.add_field(name=f"@{self.user.name} stats lane", value="Used to display your stats in a certain lane, (lane is optional, it defaults to all lanes)", inline=False)
-            embedVar.add_field(name=f"@{self.user.name} win champ1, champ2...", value="Used to register wins on several champs manually", inline=False)
-            embedVar.add_field(name=f"@{self.user.name} connect RIOTNAME TAGLINE", value="Used to link your profile with a riot account", inline=False)
-            embedVar.add_field(name=f"@{self.user.name} disconnect", value="Used to unlink your profile from your riot", inline=False)
-            examplefile = discord.File(f'images/EXAMPLEINFO.png', filename="example.png")
-            embedVar.set_image(url="attachment://example.png")
+            embedVar = discord.Embed(title="List of commands and usage")
+            embedVar.add_field(name=f"@{self.user.name} help", value="Used to display this message.", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} stats lane", value="Used to display your stats in a certain lane (lane is optional, it defaults to all lanes).", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} win champ1, champ2...", value="Used to register wins on several champs manually.", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} connect summonerName region", value="Used to link your profile with a riot account.", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} disconnect", value="Used to unlink your profile from your riot.", inline=False)
+            embedVar.add_field(name=f"@{self.user.name} lane", value="Used to fetch a random champ without a win in a certain lane (lane is optional, it defaults to select a lane).", inline=False)
+            examplefile = discord.File(f'images/logo.png', filename="logo.png")
+            embedVar.set_image(url="attachment://logo.png")
             await channel.send(file=examplefile, embed=embedVar)
 
         elif("update" in message.content) and (userid == 371076929022984196):
@@ -154,7 +159,7 @@ class MyClient(discord.Client):
                         foreground = Image.open(f"images/{lane[0]}.png")
                         textlanes += f"{lane[0]} "
                     else:
-                        foreground = Image.open(f"images/{lane[0]}.png").convert("L")
+                        foreground = Image.open(f"images/{lane[0]}.png").convert("LA")
                     background.paste(foreground, (background.width - foreground.width,posyicon), foreground)
                     posyicon += foreground.height
 
@@ -208,8 +213,8 @@ class MyClient(discord.Client):
                 try:
                     summoner = lol_watcher.summoner.by_name(f"{regionalias[region]}",gameName)
                     puuid = summoner['puuid']
-                    cur.execute(f"""INSERT INTO profiles (PLAYERID,PUUID)
-                        VALUES('{userid}', '{puuid}')""")
+                    cur.execute(f"""INSERT INTO profiles (PLAYERID,PUUID,REGION,GAMENAME)
+                        VALUES('{userid}','{puuid}','{regionalias[region]}','{gameName}')""")
                     con.commit()
                     
                     await channel.send(f"Account connected succesfully!", delete_after=10)
@@ -220,23 +225,44 @@ class MyClient(discord.Client):
                     await channel.send("Something went wrong, sorry I couldn't connect with your account", delete_after=10)       
             await message.delete(delay=10)         
 
-        # elif("load" in message.content):
-        #     def function(json_object, id):
-        #         for dictio in json_object:
-        #             if dictio['challengeId'] == id:
-        #                 return dictio
-        #     try:
-        #         cur.execute(f"""SELECT PUUID 
-        #                 FROM profiles
-        #                 WHERE PLAYERID = '{userid}'""")
-        #         puuid = cur.fetchone()[0]
-        #         allchallengedata = lol_watcher.challenges.by_puuid('euw1',puuid=puuid)["challenges"]
-        #         # print(allchallengedata)
-        #         challengedata = function(allchallengedata,401106)
-        #         print(challengedata)
-        #     except:
-        #         print(traceback.format_exc())
-        #         pass
+        elif("load" in message.content):
+            calls = 0
+            def get_games_postchall(matchlist,puuid,region,queue):
+                nonlocal calls
+                newlist = lol_watcher.match.matchlist_by_puuid(region,puuid,start_time=1652270400,queue=queue,count=100)
+                calls += 1
+                matchlist.extend(newlist)
+                start = 100
+                while len(newlist) > 0:
+                    newlist = lol_watcher.match.matchlist_by_puuid(region,puuid,start_time=1652270400,queue=queue,count=100,start=start)
+                    matchlist.extend(newlist)
+                    start+=100
+                    calls += 1
+            try:
+                await channel.send(f"Loading all matches, this may take a while", delete_after=10)
+                cur.execute(f"""SELECT PUUID, REGION 
+                        FROM profiles
+                        WHERE PLAYERID = '{userid}'""")
+                data = cur.fetchone()
+                puuid = data[0]
+                region = data[1]
+                matchlist = []
+                get_games_postchall(matchlist,puuid,region,400)
+                get_games_postchall(matchlist,puuid,region,420)
+                get_games_postchall(matchlist,puuid,region,430)
+                get_games_postchall(matchlist,puuid,region,440)
+                for matchid in matchlist:
+                    match = lol_watcher.match.by_id(region, matchid)
+                    calls += 1
+                    if calls >= 20:
+                        sleep(20)
+                        calls = 0
+                    for summoner in match["info"]["participants"]:
+                        if (summoner["puuid"] == puuid) and (summoner["win"]):
+                            await win_champ(cur,con,summoner['championName'],userid,channel)
+                await channel.send(f"Loaded all matches!")
+            except:
+                print(traceback.format_exc())
 
         else:
             components = {"components" : [[Button(label="Win", style="3", emoji = self.get_emoji(id=987155911766335520), custom_id=f"win{pid}"), 

@@ -67,7 +67,6 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 
 con = psycopg2.connect(DATABASE_URL)
 cur = con.cursor()
-
 cur.execute("""SELECT 
                 EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s),
                 EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=%s),
@@ -81,6 +80,8 @@ if not (results[1]):
     cur.execute("""CREATE TABLE profiles (
         PLAYERID VARCHAR(255),
         PUUID VARCHAR(255),
+        REGION VARCHAR(255),
+        GAMENAME VARCHAR(255),
         PRIMARY KEY(PLAYERID));""")
     con.commit()
 
