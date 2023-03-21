@@ -7,7 +7,7 @@ charset-normalizer
 multidict
 yarl
 idna
-discord.py
+py-cord
 riotwatcher
 psycopg2-binary
 pandas

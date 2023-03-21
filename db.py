@@ -9,7 +9,7 @@ def dump_data():
     pathlib.Path("data").mkdir(parents=True, exist_ok=True)
     all_champs = {}
     data = requests.get("https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-champion-statistics/global/default/rcp-fe-lol-champion-statistics.js")
-    matches = re.findall('.exports=({.*)},', data.text)
+    matches = re.findall('.exports=({TOP.*)},', data.text)
     if len(matches) > 0:
         match = matches[0]
         match = re.sub("([A-Z0-9]*):", r'"\1":', match)
