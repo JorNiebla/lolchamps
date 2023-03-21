@@ -65,10 +65,10 @@ class TestView(discord.ui.View):
 async def printlaner(lane,userid,interaction,cur):
     champ = random_champ(lanes[lane],userid,cur)
     embedVar = generate_embed(champ, lane)
-    await interaction.response.edit_message(content='',embed=embedVar)
+    await interaction.response.edit_message(content='',embed=embedVar,view=TestView)
 
-@bot.slash_command(description="Shows commands and usage")
-async def help(ctx):
+@bot.slash_command(name="help",description="Shows commands and usage")
+async def help_command(ctx):
     embedVar = discord.Embed(title="List of commands and usage")
     embedVar.add_field(name="/help", value="Used to display this message.", inline=False)
     embedVar.add_field(name="/stats lane", value="Used to display your stats in a certain lane (lane is optional, it defaults to all lanes).", inline=False)
@@ -80,7 +80,7 @@ async def help(ctx):
     embedVar.set_image(url="attachment://logo.png")
     await ctx.respond(file=examplefile, embed=embedVar)
 
-@bot.slash_command(description="Stats with missing wins")
+@bot.slash_command(name="stats",description="Stats with missing wins")
 async def stats_command(ctx,
     lane1:discord.Option(str,"Lane1", autocomplete=discord.utils.basic_autocomplete(['top','jg','mid','adc','supp']),required=False), 
     lane2:discord.Option(str,"Lane2", autocomplete=discord.utils.basic_autocomplete(['top','jg','mid','adc','supp']),required=False),
@@ -158,8 +158,8 @@ async def stats_command(ctx,
         await ctx.respond("Something went wrong, sorry I couldn't get your stats", delete_after=10) 
         con.close()
 
-@bot.slash_command(description="Mark a champ as won with")
-async def win_command(ctx,champname: discord.Option(str,"Champion"),name="win"):
+@bot.slash_command(name="win",description="Mark a champ as won with")
+async def win_command(ctx,champname: discord.Option(str,"Champion")):
     userid = ctx.author.id
     con = psycopg2.connect(DATABASE_URL)
     cur = con.cursor()
@@ -189,16 +189,16 @@ async def win_command(ctx,champname: discord.Option(str,"Champion"),name="win"):
             print(traceback.format_exc())
             await ctx.respond(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=5) 
 
-@bot.slash_command(description="Connect your discord account with your riot account")    
+@bot.slash_command(name="connect",description="Connect your discord account with your riot account")    
 async def connect_command(ctx,name="connect"):
     await ctx.respond("To be implemented")
 
-@bot.slash_command(description="Disconnect your discord account with your riot account")    
-async def disconnect(ctx,name="disconnect"):
+@bot.slash_command(name="disconnect",description="Disconnect your discord account with your riot account")    
+async def disconnect_command(ctx,name="disconnect"):
     await ctx.respond("To be implemented")
 
-@bot.slash_command(description="Disconnect your discord account with your riot account")    
-async def random_command(ctx,lane:discord.Option(str,"Champion",required=False), name="random"):
+@bot.slash_command(name="random",description="Disconnect your discord account with your riot account")    
+async def random_command(ctx,lane:discord.Option(str,"Champion",required=False)):
     await ctx.respond("To be implemented")
 
 # grupito = bot.create_group("grupito", "Comandos guapos")
