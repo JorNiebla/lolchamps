@@ -12,25 +12,28 @@ import riotwatcher
 from riotwatcher import RiotWatcher, LolWatcher
 from PIL import Image, ImageFont, ImageDraw, ImageOps
 import discord
+from discord.ext.pages import Paginator
 from dotenv import load_dotenv
+from pages import helpPages
 import os
 import db
 import traceback
 
 load_dotenv()
-TOKEN = os.getenv('TESTTOKEN')
+TOKEN = os.getenv('BOTTOKEN')
 DATABASE_URL = os.getenv('DATABASE_URL')
 bot = discord.Bot()
 
-
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL",
-    'jungler': "JGL", 'mid': "MID", 'middle': "MID", 'adc': "ADC", 'bot': "ADC",
-    'supp': "SUP", 'sup': "SUP", 'support': "SUP"}
+    'jungler': "JGL", 'jgl': "JGL", 'mid': "MID", 'middle': "MID", 'adc': "ADC",
+    'bot': "ADC", 'supp': "SUP", 'sup': "SUP", 'support': "SUP"}
 
 regionalias = {"euw":"euw1", "na":"na1", "br":"br1", "eun":"eun1", "jp":"jp1",
     "kr":"kr", "lan":"la1", "las":"la2", "oc":"oc1", "ru":"ru", "tr":"tr1"}
 
-def random_champ(lane,userid,cur):
+async def random_champ(lane,userid):
+    con = psycopg2.connect(DATABASE_URL)
+    cur = con.cursor()
     cur.execute(f"""SELECT CHAMP, CHAMPID, SPLASH 
                     FROM champions 
                     WHERE {lane} = True AND CHAMPID NOT IN
@@ -39,54 +42,131 @@ def random_champ(lane,userid,cur):
                          WHERE PLAYERID = '{userid}'
                         )""")
     champ = random.choice(cur.fetchall())
+    con.close()
     return champ
 
-def generate_embed(champ,lane):
+async def generate_embed(champ,lane):
     embedVar = discord.Embed(color=0x00ff00)
     embedVar.add_field(name="Champion", value=champ[0])
     embedVar.add_field(name="Lane", value=lane)
     embedVar.set_image(url=champ[2])
     return embedVar
 
-class TestView(discord.ui.View):
+async def win(ctx, champname):
+    if isinstance(ctx,discord.commands.context.ApplicationContext):
+        member = ctx.author
+        await ctx.respond("I'm registering the win, I'll send you a DM when it's finished",ephemeral=True)
+    else:
+        member = ctx.user
+        await ctx.response.send_message("I'm registering the win, I'll send you a DM when it's finished",ephemeral=True)
+    con = psycopg2.connect(DATABASE_URL)
+    cur = con.cursor()
+    champid=MAXINT
+    cur.execute("SELECT CHAMP, ALIAS, CHAMPID FROM champions")
+    champlist = cur.fetchall()
+    for champ in champlist:
+        if champname.lower() == champ[0].lower():
+            champid = champ[2]
+            break
+        if champname.lower() == champ[1].lower():
+            champid = champ[2]
+            break
+
+    if champid == MAXINT:
+        dm = await member.create_dm()
+        await dm.send("I dont know that champion, please type a valid champion", delete_after=10)
+    else:
+        try:
+            cur.execute(f"""INSERT INTO wins (CHAMPID, PLAYERID)
+                        VALUES({champid}, {member.id})""")
+            con.commit()
+            dm = await member.create_dm()
+            await dm.send(f"Congratulations on the win with {champname}")
+        except psycopg2.errors.UniqueViolation:
+            #await channel.send(f"You have already won with {champname}, try another champ", delete_after=5)
+            con.rollback()
+        except:
+            print(traceback.format_exc())
+            dm = await member.create_dm()
+            await dm.send(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=5) 
+
+class LanesView(discord.ui.View):
     async def on_timeout(self):
         for child in self.children:
             child.disabled = True
         await self.message.delete()
 
-    @discord.ui.button(label="Prueba", style=discord.ButtonStyle.primary)
-    async def button_callback(self, boton, interaction): #_messagesend("LETS GO", delete_after=0.5)
-        con = psycopg2.connect(DATABASE_URL)
-        cur = con.cursor()
-        await printlaner("top",0,interaction,cur)
-        con.close()
-        #await interaction.message.delete()
+    @discord.ui.button(label="Top", style=discord.ButtonStyle.primary)
+    async def top_callback(self, button, interaction): 
+        await printlaner("top",interaction.user.id,interaction)
+    
+    @discord.ui.button(label="Jungle", style=discord.ButtonStyle.primary)
+    async def jungle_callback(self, button, interaction): 
+        await printlaner("jgl",interaction.user.id,interaction)
 
-async def printlaner(lane,userid,interaction,cur):
-    champ = random_champ(lanes[lane],userid,cur)
-    embedVar = generate_embed(champ, lane)
-    await interaction.response.edit_message(content='',embed=embedVar,view=TestView)
+    @discord.ui.button(label="Mid", style=discord.ButtonStyle.primary)
+    async def mid_callback(self, button, interaction): 
+        await printlaner("mid",interaction.user.id,interaction)
+    
+    @discord.ui.button(label="Adc", style=discord.ButtonStyle.primary)
+    async def adc_callback(self, button, interaction): 
+        await printlaner("adc",interaction.user.id,interaction)
+    
+    @discord.ui.button(label="Support", style=discord.ButtonStyle.primary)
+    async def support_callback(self, button, interaction): 
+        await printlaner("sup",interaction.user.id,interaction)
+
+class ChampionView(discord.ui.View):
+    def __init__(self,lane,champname,timeout):
+        discord.ui.View.__init__(self,timeout=timeout)
+        self.lane = lane
+        self.champname = champname
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+        await self.message.delete()
+
+    @discord.ui.button(label="Re-Roll", style=discord.ButtonStyle.primary)
+    async def reroll_callback(self, button, interaction): 
+        await printlaner(self.lane,interaction.user.id,interaction)
+
+    @discord.ui.button(label="Lanes", style=discord.ButtonStyle.primary)
+    async def lanes_callback(self, button, interaction): 
+        await printlanes(interaction)
+
+    @discord.ui.button(label="Win", style=discord.ButtonStyle.primary)
+    async def win_callback(self, button, interaction):
+        await win(interaction,self.champname)
+
+async def printlaner(lane,userid,ctx):
+    champ = await random_champ(lanes[lane],userid)
+    embedVar = await generate_embed(champ, lane)
+    if isinstance(ctx,discord.commands.context.ApplicationContext):
+        await ctx.respond(content='',embed=embedVar,view=ChampionView(lane=lane,champname=champ[0],timeout=None))
+    else:
+        await ctx.response.edit_message(content='',embed=embedVar,view=ChampionView(lane=lane,champname=champ[0],timeout=None))
+
+async def printlanes(ctx):
+    embedVar = discord.Embed(color=0x00ff00)
+    embedVar.set_image(url="https://cdn.discordapp.com/attachments/518907821081755672/987335003371364452/unknown.png")
+    if isinstance(ctx,discord.commands.context.ApplicationContext):
+        await ctx.respond(content='',embed=embedVar,view=LanesView(timeout=None))
+    else:
+        await ctx.response.edit_message(content='',embed=embedVar,view=LanesView(timeout=None))
+   
 
 @bot.slash_command(name="help",description="Shows commands and usage")
 async def help_command(ctx):
-    embedVar = discord.Embed(title="List of commands and usage")
-    embedVar.add_field(name="/help", value="Used to display this message.", inline=False)
-    embedVar.add_field(name="/stats lane", value="Used to display your stats in a certain lane (lane is optional, it defaults to all lanes).", inline=False)
-    embedVar.add_field(name="/win champ1, champ2...", value="Used to register wins on several champs manually.", inline=False)
-    embedVar.add_field(name="/connect summonerName region", value="Used to link your profile with a riot account.", inline=False)
-    embedVar.add_field(name="/disconnect", value="Used to unlink your profile from your riot account.", inline=False)
-    embedVar.add_field(name="/random lane", value="Used to fetch a random champ without a win in a certain lane (lane is optional, it defaults to select a lane).", inline=False)
-    examplefile = discord.File(f'images/logo.png', filename="logo.png")
-    embedVar.set_image(url="attachment://logo.png")
-    await ctx.respond(file=examplefile, embed=embedVar)
+    paginator = Paginator(pages=helpPages)
+    await paginator.respond(ctx.interaction, ephemeral=True)
 
 @bot.slash_command(name="stats",description="Stats with missing wins")
 async def stats_command(ctx,
     lane1:discord.Option(str,"Lane1", autocomplete=discord.utils.basic_autocomplete(['top','jg','mid','adc','supp']),required=False), 
     lane2:discord.Option(str,"Lane2", autocomplete=discord.utils.basic_autocomplete(['top','jg','mid','adc','supp']),required=False),
     lane3:discord.Option(str,"Lane3", autocomplete=discord.utils.basic_autocomplete(['top','jg','mid','adc','supp']),required=False),
-    lane4:discord.Option(str,"Lane4", autocomplete=discord.utils.basic_autocomplete(['top','jg','mid','adc','supp']),required=False),
-    name="stats"):
+    lane4:discord.Option(str,"Lane4", autocomplete=discord.utils.basic_autocomplete(['top','jg','mid','adc','supp']),required=False)):
     userid = ctx.author.id
     con = psycopg2.connect(DATABASE_URL)
     cur = con.cursor()
@@ -160,79 +240,27 @@ async def stats_command(ctx,
 
 @bot.slash_command(name="win",description="Mark a champ as won with")
 async def win_command(ctx,champname: discord.Option(str,"Champion")):
-    userid = ctx.author.id
-    con = psycopg2.connect(DATABASE_URL)
-    cur = con.cursor()
-    champid=MAXINT
-    cur.execute("SELECT CHAMP, ALIAS, CHAMPID FROM champions")
-    champlist = cur.fetchall()
-    for champ in champlist:
-        if champname.lower() == champ[0].lower():
-            champid = champ[2]
-            break
-        if champname.lower() == champ[1].lower():
-            champid = champ[2]
-            break
-
-    if champid == MAXINT:
-        await ctx.respond("I dont know that champion, please type a valid champion", delete_after=10)
-    else:
-        try:
-            cur.execute(f"""INSERT INTO wins (CHAMPID, PLAYERID)
-                        VALUES({champid}, {userid})""")
-            con.commit()
-            await ctx.respond(f"Congratulations on the win with {champname}", delete_after=10)
-        except psycopg2.errors.UniqueViolation:
-            #await channel.send(f"You have already won with {champname}, try another champ", delete_after=5)
-            con.rollback()
-        except:
-            print(traceback.format_exc())
-            await ctx.respond(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=5) 
+    await win(ctx,champname)
 
 @bot.slash_command(name="connect",description="Connect your discord account with your riot account")    
-async def connect_command(ctx,name="connect"):
+async def connect_command(ctx):
     await ctx.respond("To be implemented")
 
 @bot.slash_command(name="disconnect",description="Disconnect your discord account with your riot account")    
-async def disconnect_command(ctx,name="disconnect"):
+async def disconnect_command(ctx):
     await ctx.respond("To be implemented")
 
-@bot.slash_command(name="random",description="Disconnect your discord account with your riot account")    
-async def random_command(ctx,lane:discord.Option(str,"Champion",required=False)):
-    await ctx.respond("To be implemented")
-
-# grupito = bot.create_group("grupito", "Comandos guapos")
-
-# @grupito.command(description="Latencia")
-# async def pong(ctx):
-#     await ctx.respond(f"Ping! La latencia es {bot.latency}")
-
-# @grupito.command(description="Suma de dos numeros")
-# async def suma(ctx, num1: discord.Option(int,"Primer numero"), num2: discord.Option(int,"Segundo numero")):
-#     sum = num1 + num2
-#     await ctx.respond(f"Ping! La suma de {num1} y {num2} es {sum}")
-
-# @grupito.command(description="Activa el botón de prueba")
-# async def boton(ctx):
-#     await ctx.respond("Dale al boton", view=TestView(timeout=None))
+@bot.slash_command(name="random",description="Get a random champion for the lane")    
+async def random_command(ctx,lane:discord.Option(str,choices=["top","jgl","mid","adc","sup"],required=False)):
+    if (lane == None):
+        await printlanes(ctx)
+    else:
+        await printlaner(lane,ctx.author.id,ctx)
 
 bot.run(TOKEN)
 
 # class MyClient(discord.Client):
-#     async def on_ready(self):
-#         await bot.tree.sync(guild=discord.Object(id=518907819513217034))
-#         print('Logged on as', self.user)
 
-#     async def on_message(self, message):
-#         botpinged = False
-#         for role in message.role_mentions:
-#             if role.tags.is_bot_managed() and role.tags.bot_id == self.user.id:
-#                 botpinged = True
-#                 break
-#         if(self.user in message.mentions and not message.author.bot):
-#             botpinged = True
-
-#         if botpinged:
 #             con = psycopg2.connect(DATABASE_URL)
 #             cur = con.cursor()
 #             pid = random.randint(MININT,MAXINT)
@@ -264,7 +292,7 @@ bot.run(TOKEN)
 #                     pass
 #                 else:
 #                     gameName = info[0]
-#                     region = info[1].lower()
+#    /                 region = info[1].lower()
 #                     try:
 #                         summoner = lol_watcher.summoner.by_name(f"{regionalias[region]}",gameName)
 #                         puuid = summoner['puuid']
@@ -295,7 +323,7 @@ bot.run(TOKEN)
 #                             WHERE PLAYERID = '{userid}'""")
 #                     data = cur.fetchone()
 #                     puuid = data[0]
-#                     region = data[1]
+#/                     region = data[1]
 #                     matchlist = []
 #                     get_games_postchall(matchlist,puuid,region,400) #DRAFT PICK
 #                     get_games_postchall(matchlist,puuid,region,420) #SOLO DUO
