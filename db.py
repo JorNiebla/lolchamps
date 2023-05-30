@@ -4,12 +4,13 @@ import os
 import pathlib
 import json
 import re
+import traceback
 
 def dump_data():
     pathlib.Path("data").mkdir(parents=True, exist_ok=True)
     all_champs = {}
     data = requests.get("https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-champion-statistics/global/default/rcp-fe-lol-champion-statistics.js")
-    matches = re.findall('.exports=({TOP.*)},', data.text)
+    matches = re.findall('.exports=({TOP.*}})},', data.text)
     if len(matches) > 0:
         match = matches[0]
         match = re.sub("([A-Z0-9]*):", r'"\1":', match)
@@ -61,8 +62,30 @@ def update_champions_DB(con,cur):
         cur.execute(aquery,data)
     con.commit()
 
+def connect_account(con,cur,userid,puuid,name,region):
+    try:
+        cur.execute(f"""INSERT INTO profiles (PLAYERID,PUUID,REGION,GAMENAME,LASTEPOCH)
+                        VALUES('{userid}','{puuid}','{region}','{name}',1652270400)""")
+    except psycopg2.errors.UniqueViolation:
+        return("You already have an account connected")
+    except:
+        print(traceback.format_exc())
+        return("ERROR")
+    con.commit()
+    return("CONNECTED!")
 
-# ------------------------------------------------------------------------------------------------------------------------------------------------------ #
+def disconnect_account(con,cur,userid):
+    try:
+        cur.execute(f"""DELETE FROM profiles 
+                        WHERE PLAYERID = '{userid}'""")
+        cur.execute(f"""DELETE FROM wins 
+                        WHERE PLAYERID = '{userid}'""")
+    except:
+        print(traceback.format_exc())
+        return("ERROR")
+    con.commit()
+    return("DISCONNECTED!")
+
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 con = psycopg2.connect(DATABASE_URL)
@@ -82,6 +105,7 @@ if not (results[1]):
         PUUID VARCHAR(255),
         REGION VARCHAR(255),
         GAMENAME VARCHAR(255),
+        LASTEPOCH INT,
         PRIMARY KEY(PLAYERID));""")
     con.commit()
 

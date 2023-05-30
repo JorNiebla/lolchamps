@@ -19,9 +19,14 @@ import os
 import db
 import traceback
 
+import time
+
 load_dotenv()
 TOKEN = os.getenv('BOTTOKEN')
 DATABASE_URL = os.getenv('DATABASE_URL')
+RIOT_API_KEY = os.getenv('RIOT_API_KEY')
+riot_watcher = RiotWatcher(RIOT_API_KEY)
+lol_watcher = LolWatcher(RIOT_API_KEY)
 bot = discord.Bot()
 
 lanes = {'top': "TOP", 'jg': "JGL", 'jung': "JGL", 'jng': "JGL",'jungle': "JGL",
@@ -52,13 +57,15 @@ async def generate_embed(champ,lane):
     embedVar.set_image(url=champ[2])
     return embedVar
 
-async def win(ctx, champname):
+async def win(ctx, champname, spam):
     if isinstance(ctx,discord.commands.context.ApplicationContext):
         member = ctx.author
-        await ctx.respond("I'm registering the win, I'll send you a DM when it's finished",ephemeral=True)
+        if spam:
+            await ctx.respond("I'm registering the win, I'll send you a DM when it's finished",ephemeral=True)
     else:
         member = ctx.user
-        await ctx.response.send_message("I'm registering the win, I'll send you a DM when it's finished",ephemeral=True)
+        if spam:
+            await ctx.response.send_message("I'm registering the win, I'll send you a DM when it's finished",ephemeral=True)
     con = psycopg2.connect(DATABASE_URL)
     cur = con.cursor()
     champid=MAXINT
@@ -80,15 +87,16 @@ async def win(ctx, champname):
             cur.execute(f"""INSERT INTO wins (CHAMPID, PLAYERID)
                         VALUES({champid}, {member.id})""")
             con.commit()
-            dm = await member.create_dm()
-            await dm.send(f"Congratulations on the win with {champname}")
+            if spam:
+                dm = await member.create_dm()
+                await dm.send(f"Congratulations on the win with {champname}")
         except psycopg2.errors.UniqueViolation:
-            #await channel.send(f"You have already won with {champname}, try another champ", delete_after=5)
             con.rollback()
         except:
             print(traceback.format_exc())
-            dm = await member.create_dm()
-            await dm.send(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=5) 
+            if spam:
+                dm = await member.create_dm()
+                await dm.send(f"Something went wrong, sorry I couldn't register the win with {champname}", delete_after=5) 
 
 class LanesView(discord.ui.View):
     async def on_timeout(self):
@@ -154,7 +162,15 @@ async def printlanes(ctx):
         await ctx.respond(content='',embed=embedVar,view=LanesView(timeout=None))
     else:
         await ctx.response.edit_message(content='',embed=embedVar,view=LanesView(timeout=None))
-   
+
+def get_games_postchall(matchlist,puuid,region,queue,start_time):
+    newlist = lol_watcher.match.matchlist_by_puuid(region,puuid,start_time=start_time,queue=queue,count=100)
+    matchlist.extend(newlist)
+    start = 100
+    while len(newlist) > 0:
+        newlist = lol_watcher.match.matchlist_by_puuid(region,puuid,start_time=start_time,queue=queue,count=100,start=start)
+        matchlist.extend(newlist)
+        start+=100  
 
 @bot.slash_command(name="help",description="Shows commands and usage")
 async def help_command(ctx):
@@ -257,15 +273,51 @@ async def random_command(ctx,lane:discord.Option(str,choices=["top","jgl","mid",
     else:
         await printlaner(lane,ctx.author.id,ctx)
 
+@bot.slash_command(name="load",description="Load your games")
+async def load_games(ctx):
+    member = ctx.author
+    userid = ctx.author.id
+    con = psycopg2.connect(DATABASE_URL)
+    cur = con.cursor()
+    cur.execute(f"""SELECT PUUID, REGION, LASTEPOCH 
+                    FROM profiles
+                    WHERE PLAYERID = '{userid}'""")
+    data = cur.fetchone()
+    con.close()
+    puuid = data[0]
+    region = data[1]
+    start_time = data[2]
+    matchlist = []
+    await ctx.respond("I'm registering the wins, I'll send you a DM when I'm finished",ephemeral=True)
+    get_games_postchall(matchlist,puuid,region,400,start_time) #DRAFT PICK
+    get_games_postchall(matchlist,puuid,region,420,start_time) #SOLO DUO
+    get_games_postchall(matchlist,puuid,region,430,start_time) #BLIND PICK
+    get_games_postchall(matchlist,puuid,region,440,start_time) #FLEX
+    epochtime = 0
+    for matchid in matchlist:
+        match = lol_watcher.match.by_id(region, matchid)
+        for summoner in match["info"]["participants"]:
+            if (summoner["puuid"] == puuid) and (summoner["win"]):
+                epochtime = match['info']['gameCreation']
+                print(f"{ctx.author.name} win with {summoner['championName']} on {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(epochtime/1000))}")
+                await win(ctx,summoner['championName'],False)
+    print("Finished!")
+    currentime = round(time.time())
+    con = psycopg2.connect(DATABASE_URL)
+    cur = con.cursor()
+    cur.execute(f"""UPDATE profiles
+                    SET LASTEPOCH = {currentime}
+                    WHERE PLAYERID = '{userid}'""")
+    con.commit()
+    con.close()
+    dm = await member.create_dm()
+    await dm.send(f"I finished loading all your wins! Check your stats")
+
+
+
+
 bot.run(TOKEN)
 
-# class MyClient(discord.Client):
-
-#             con = psycopg2.connect(DATABASE_URL)
-#             cur = con.cursor()
-#             pid = random.randint(MININT,MAXINT)
-#             userid = message.author.id
-#             channel = message.channel
 
 #             elif("update" in message.content) and (userid == 371076929022984196):
 #                 await channel.send("Updating database...", delete_after=10)
@@ -284,59 +336,6 @@ bot.run(TOKEN)
 #                     await channel.send("Something went wrong, sorry I couldn't disconnect with your account", delete_after=10)
 
 #                 await message.delete(delay=10)
-
-#             elif("connect" in message.content):
-#                 info = message.content.split("connect", 1)[1].strip().rsplit(" ", 1)
-#                 
-#                 if len(info) != 2:
-#                     pass
-#                 else:
-#                     gameName = info[0]
-#    /                 region = info[1].lower()
-#                     try:
-#                         summoner = lol_watcher.summoner.by_name(f"{regionalias[region]}",gameName)
-#                         puuid = summoner['puuid']
-#                         cur.execute(f"""INSERT INTO profiles (PLAYERID,PUUID,REGION,GAMENAME)
-#                             VALUES('{userid}','{puuid}','{regionalias[region]}','{gameName}')""")
-#                         con.commit()
-#                         await channel.send(f"Account connected succesfully!", delete_after=10)
-#                     except psycopg2.errors.UniqueViolation:
-#                         await channel.send(f"You have already have an account connected, if you wish to change it mention me with \"disconnect\"", delete_after=10)            
-#                     except:
-#                         print(traceback.format_exc())
-#                         await channel.send("Something went wrong, sorry I couldn't connect with your account", delete_after=10)       
-#                 await message.delete(delay=10)         
-
-#             elif("load" in message.content):
-#                 def get_games_postchall(matchlist,puuid,region,queue):
-#                     newlist = lol_watcher.match.matchlist_by_puuid(region,puuid,start_time=1652270400,queue=queue,count=100)
-#                     matchlist.extend(newlist)
-#                     start = 100
-#                     while len(newlist) > 0:
-#                         newlist = lol_watcher.match.matchlist_by_puuid(region,puuid,start_time=1652270400,queue=queue,count=100,start=start)
-#                         matchlist.extend(newlist)
-#                         start+=100
-#                 try:
-#                     await channel.send(f"Loading all matches, this may take a while")
-#                     cur.execute(f"""SELECT PUUID, REGION 
-#                             FROM profiles
-#                             WHERE PLAYERID = '{userid}'""")
-#                     data = cur.fetchone()
-#                     puuid = data[0]
-#/                     region = data[1]
-#                     matchlist = []
-#                     get_games_postchall(matchlist,puuid,region,400) #DRAFT PICK
-#                     get_games_postchall(matchlist,puuid,region,420) #SOLO DUO
-#                     get_games_postchall(matchlist,puuid,region,430) #BLIND PICK
-#                     get_games_postchall(matchlist,puuid,region,440) #FLEX
-#                     for matchid in matchlist:
-#                         match = lol_watcher.match.by_id(region, matchid)
-#                         for summoner in match["info"]["participants"]:
-#                             if (summoner["puuid"] == puuid) and (summoner["win"]):
-#                                 await win_champ(cur,con,summoner['championName'],userid,channel)
-#                     await channel.send(f"Loaded all matches!")
-#                 except:
-#                     print(traceback.format_exc())
 
 #             else:
 #                 championbuttons = [

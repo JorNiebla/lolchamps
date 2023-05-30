@@ -1,12 +1,46 @@
 <!DOCTYPE html>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <html>
   <head>
+    <a href="/"><button class="button button3">Go to the home page</button></a>
     <title>You are logged in</title>
   </head>
-<body>
-<h1>Welcome to the post login page</h1>
-  Success, logged in as {{user_name}}#{{user_id}}
-  <div>{{ content|safe }}</div>
-  <a href="/"><button>Go to the home page</button></a>
-</body>
+  <body>
+    <h1>Welcome to the post login page</h1>
+    <form method="post" action="/info">
+      <label>Choose your League of Legends account:
+        <select id="name" name="name">
+          {% for name in names %}
+          <option value="{{name}}">{{name}}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Choose your region:
+        <select id="region" name="region">
+          <option value="EUW1">EUW</option>
+          <option value="NA1">NA</option>
+          <option value="KR">KR</option>
+          <option value="EUNE">EUNE</option>
+          <option value="BR1">BR</option>
+          <option value="JP1">JP</option>
+          <option value="LA1">LAN</option>
+          <option value="LA2">LAS</option>
+          <option value="OC1">OCE</option>
+          <option value="PH2">PH</option>
+          <option value="RU">RU</option>
+          <option value="SG2">SG</option>
+          <option value="TH2">TH</option>
+          <option value="TR1">TR</option>
+          <option value="TW2">TW</option>
+          <option value="VN2">VN</option>
+        </select>
+      </label>
+      <input type="submit" value="Submit">
+    </form>
+    <a href="/"><button>Go to the home page</button></a>
+  </body>
 </html>
+
+
+
+<!-- <input type="hidden" name="name" value={{name}}> -->

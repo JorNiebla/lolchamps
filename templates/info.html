@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<html>
+  <head>
+    <a href="/"><button class="button button3">Go to the home page</button></a>
+    <title>You are logged in</title>
+  </head>
+<body>
+<h1>Welcome to the post login page</h1>
+
+<div class="grid-container">
+  <div class="grid-item"><img src="{{davatar}}" width="128" height="128"></div>
+  <div class="grid-item"><img src="{{lavatar}}" width="128" height="128"></div>
+  <div class="grid-item">{{dname}}</div>
+  <div class="grid-item">{{lname}}</div>
+</div>
+<br><p>{{info}}</p>
+<form action="/postlogin" method="post">
+  <button class="button2" name="action" value="disconnect">DISCONNECT ACCOUNT</button>
+</form>
+
+</body>
+</html>

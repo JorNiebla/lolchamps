@@ -1,0 +1,16 @@
+<html>
+  <head>
+    <title>Loading...</title>
+  </head>
+  <body>
+    <form id="formPost" action="/postlogin" method="POST" style="display: none;">
+      <input type="hidden" name="action" value="{{code}}">
+    </form>
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        document.getElementById("formPost").submit();
+      });
+    </script>
+    <p>Not redirected? Go to <a href="/postlogin">example.com</a></p>
+  </body>
+</html>
